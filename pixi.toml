@@ -1,0 +1,10 @@
+[workspace]
+authors = ["thibaultdvx <thibault.devarax@icm-institute.org>"]
+channels = ["conda-forge"]
+name = "dural-perisinus-segmentation"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
