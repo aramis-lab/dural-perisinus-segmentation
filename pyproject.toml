@@ -33,18 +33,19 @@ python = "3.12.*"
 platforms = ["linux-cuda", "win-cuda"]
 
 [tool.pixi.feature.gpu.dependencies]
-pytorch-gpu = "*"
+pytorch-gpu = ">=2.4.1,<2.7.0"
 
 [tool.pixi.feature.cpu]
 platforms = ["linux-64", "win-64", "osx-arm64"]
 
 [tool.pixi.feature.cpu.dependencies]
-pytorch-cpu = "*"
+pytorch-cpu = ">=2.4.1,<2.7.0"
 
 [tool.pixi.environments]
 training = ["gpu", "nnunet"]
-default = ["cpu"]
+default = ["cpu", "analysis"]
 
 [dependency-groups]
 nnunet = ["nnunetv2"]
+analysis = ["clinicadl==2.0"]
 
