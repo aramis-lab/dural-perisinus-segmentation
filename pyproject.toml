@@ -1,5 +1,8 @@
 [project]
-authors = [{name = "thibaultdvx", email = "thibault.devarax@icm-institute.org"}]
+authors = [
+    { name = "thibaultdvx", email = "thibault.devarax@icm-institute.org" },
+]
+dependencies = []
 name = "dural-perisinus-segmentation"
 requires-python = ">= 3.11"
 version = "0.1.0"
@@ -10,7 +13,13 @@ requires = ["hatchling"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+platforms = [
+    "osx-arm64",
+    "linux-64",
+    "win-64",
+    { name = "linux-cuda", platform = "linux-64", cuda = "12" },
+    { name = "win-cuda", platform = "win-64", cuda = "12" },
+]
 
 [tool.pixi.pypi-dependencies]
 dural_perisinus_segmentation = { path = ".", editable = true }
@@ -20,8 +29,22 @@ dural_perisinus_segmentation = { path = ".", editable = true }
 [tool.pixi.dependencies]
 python = "3.12.*"
 
-[tool.pixi.feature.nnunet.target.linux-64.pypi-dependencies]
-nnunetv2 = "*"
+[tool.pixi.feature.gpu]
+platforms = ["linux-cuda", "win-cuda"]
+
+[tool.pixi.feature.gpu.dependencies]
+pytorch-gpu = "*"
+
+[tool.pixi.feature.cpu]
+platforms = ["linux-64", "win-64", "osx-arm64"]
+
+[tool.pixi.feature.cpu.dependencies]
+pytorch-cpu = "*"
 
 [tool.pixi.environments]
-gpu = ["nnunet"]
+training = ["gpu", "nnunet"]
+default = ["cpu"]
+
+[dependency-groups]
+nnunet = ["nnunetv2"]
+
