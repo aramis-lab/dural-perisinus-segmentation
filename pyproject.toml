@@ -38,7 +38,8 @@ click = ">=8.4.1,<9"
 platforms = ["linux-cuda", "win-cuda"]
 
 [tool.pixi.feature.gpu.dependencies]
-pytorch-gpu = ">=2.4.1,<2.7.0"
+pytorch-gpu = "*"
+torchvision = ">=0.21.0,<0.22"
 
 [tool.pixi.feature.cpu]
 platforms = ["linux-64", "win-64", "osx-arm64"]
