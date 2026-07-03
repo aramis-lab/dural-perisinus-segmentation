@@ -7,3 +7,6 @@ data
 
 # python cache
 *.pyc
+
+# vscode
+.vscode
