@@ -11,6 +11,9 @@ version = "0.1.0"
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
+[project.scripts]
+dural-perisinus-seg = "dural_perisinus_segmentation.cli:cli"
+
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = [
@@ -28,6 +31,7 @@ dural_perisinus_segmentation = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
 python = "3.12.*"
+click = ">=8.4.1,<9"
 
 [tool.pixi.feature.gpu]
 platforms = ["linux-cuda", "win-cuda"]
@@ -40,6 +44,9 @@ platforms = ["linux-64", "win-64", "osx-arm64"]
 
 [tool.pixi.feature.cpu.dependencies]
 pytorch-cpu = ">=2.4.1,<2.7.0"
+
+[tool.pixi.feature.analysis.dependencies]
+tqdm = ">=4.68.3,<5"
 
 [tool.pixi.environments]
 training = ["gpu", "nnunet"]
