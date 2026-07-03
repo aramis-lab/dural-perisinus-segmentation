@@ -3,7 +3,7 @@
 !.pixi/config.toml
 
 # data
-data
+/data
 
 # python cache
 *.pyc
