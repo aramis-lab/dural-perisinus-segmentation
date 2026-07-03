@@ -26,6 +26,7 @@ platforms = [
 
 [tool.pixi.pypi-dependencies]
 dural_perisinus_segmentation = { path = ".", editable = true }
+nnunetv2 = { path = "nnUNet", editable = true }
 
 [tool.pixi.tasks]
 
@@ -49,10 +50,9 @@ pytorch-cpu = ">=2.4.1,<2.7.0"
 tqdm = ">=4.68.3,<5"
 
 [tool.pixi.environments]
-training = ["gpu", "nnunet"]
+training = ["gpu"]
 default = ["cpu", "analysis"]
 
 [dependency-groups]
-nnunet = ["nnunetv2"]
 analysis = ["clinicadl==2.0"]
 
