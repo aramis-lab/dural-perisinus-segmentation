@@ -33,7 +33,7 @@ from clinicadl.split import make_split
     "--p_age_threshold",
     type=click.FloatRange(min=0, max_open=1),
     help="The p-value threshold for stratification on age. The higher, the more similar training and test distributions must be.",
-    default=0.9,
+    default=0.95,
     show_default=True,
 )
 @click.option("--seed", type=int, help="A seed for reproducibility.")

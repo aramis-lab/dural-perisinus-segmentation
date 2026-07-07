@@ -8,6 +8,8 @@ from clinicadl.split import SingleSplit
 from clinicadl.transforms import TransformsHandler
 from clinicadl.transforms.config import ToCanonicalConfig
 from tqdm import tqdm
+from joblib import Parallel, delayed
+
 
 class _BidsFileTypeParam(click.ParamType[BidsFileType]):
     def convert(self, value, param, ctx) -> BidsFileType:
@@ -17,12 +19,18 @@ class _BidsFileTypeParam(click.ParamType[BidsFileType]):
         except ValueError:
             self.fail(f"{value!r} is not a valid integer", param, ctx)
 
+
 NNUNET_RAW = "nnUNet_raw"
+
 
 @click.command(no_args_is_help=True)
 @click.argument(
     "bids_path",
     type=Path,
+)
+@click.argument(
+    "dataset_id",
+    type=click.IntRange(min=0),
 )
 @click.argument(
     "img_file_type",
@@ -31,10 +39,7 @@ NNUNET_RAW = "nnUNet_raw"
 @click.argument(
     "mask_file_type",
     type=_BidsFileTypeParam(),
-)
-@click.argument(
-    "dataset_id",
-    type=click.IntRange(min=0),
+    nargs=-1,
 )
 @click.option(
     "--dataset_name",
@@ -59,9 +64,9 @@ NNUNET_RAW = "nnUNet_raw"
 )
 def bids_to_nnunet(
     bids_path: Path,
-    img_file_type: BidsFileType,
-    mask_file_type: BidsFileType,
     dataset_id: int,
+    img_file_type: BidsFileType,
+    mask_file_type: tuple[BidsFileType, ...],
     dataset_name: str,
     split_dir: Path,
     nnunet_datasets_dir: Path,
@@ -73,55 +78,71 @@ def bids_to_nnunet(
 
     Args:\n
         bids_path (Path) : Path to the BIDS directory.\n
+        dataset_id (int) : The id to give to the dataset.\n
         img_file_type (str) : A dictionary describing the images to get in the BIDS directory. It must be parameters accepted by clinicadl.io.BidsFileType.\n
-        mask_file_type (str) : A dictionary describing the segmentation masks to get in the BIDS directory. It must be parameters accepted by clinicadl.io.BidsFileType.\n
-        dataset_id (int) : The id to give to the dataset.
+        mask_file_type (str) : A dictionary describing the segmentation masks to get in the BIDS directory. It must be parameters accepted by clinicadl.io.BidsFileType. Multiple values can be passed (if multiple raters).
 
     Example:\n
         dural-perisinus-seg bids-to-nnunet data/my_bids '{"suffix": "dante", "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater1"}, "data_type": "anat"}' 0
     """
+    cnt_training = 0
+    subjects_ids = {}
+    for mask in mask_file_type:
+        print("Exporting data for mask: ", {str(mask)})
+        bids = BidsDataset(
+            bids_path,
+            file_type=img_file_type,
+            masks={"gt": mask},
+            transforms=TransformsHandler(image_transforms=[ToCanonicalConfig()]),
+        )
+        bids.sanity_check(spatial_checks=["affine"])
+
+        split = SingleSplit(split_dir).get_split(bids)
+
+        dataset_path = (
+            Path(nnunet_datasets_dir) / f"Dataset{dataset_id:03}_{dataset_name}"
+        )
+        (dataset_path / "imagesTr").mkdir(exist_ok=True, parents=True)
+        (dataset_path / "imagesTs").mkdir(exist_ok=True, parents=True)
+        (dataset_path / "labelsTr").mkdir(exist_ok=True, parents=True)
+
+        train_results = Parallel(n_jobs=-1, prefer="threads")(
+            delayed(_save_train_sample)(
+                cnt_training + k,
+                data,
+                dataset_path,
+            )
+            for k, data in tqdm(
+                enumerate(split.train_dataset),
+                total=len(split.train_dataset),
+                desc="Exporting training images",
+            )
+        )
+
+        subjects_ids.update(dict(train_results))
+        cnt_training += len(train_results)
+
     bids = BidsDataset(
         bids_path,
         file_type=img_file_type,
-        masks={"gt": mask_file_type},
         transforms=TransformsHandler(image_transforms=[ToCanonicalConfig()]),
     )
-    bids.sanity_check(spatial_checks=["affine"])
-
     split = SingleSplit(split_dir).get_split(bids)
 
-    dataset_path = (
-        Path(nnunet_datasets_dir) / f"Dataset{dataset_id:03}_{dataset_name}"
+    test_results = Parallel(n_jobs=-1, prefer="threads")(
+        delayed(_save_test_sample)(
+            cnt_training + k,
+            data,
+            dataset_path,
+        )
+        for k, data in tqdm(
+            enumerate(split.val_dataset),
+            total=len(split.val_dataset),
+            desc="Exporting test images",
+        )
     )
-    (dataset_path / "imagesTr").mkdir(exist_ok=True, parents=True)
-    (dataset_path / "imagesTs").mkdir(exist_ok=True, parents=True)
-    (dataset_path / "labelsTr").mkdir(exist_ok=True, parents=True)
 
-    subjects_ids = {}
-
-    for i, data in tqdm(enumerate(split.train_dataset), desc="Exporting training images"):
-        img_dest_path = (
-            dataset_path
-            / "imagesTr"
-            / f"sub_{i:03}_0000.nii.gz"
-        )
-        seg_dest_path = (
-            dataset_path / "labelsTr" / f"sub_{i:03}.nii.gz"
-        )
-        subjects_ids[f"{i:03}"] = data.participant_id
-
-        data.image.save(img_dest_path)
-        data.gt.save(seg_dest_path)
-
-    for j, data in tqdm(enumerate(split.val_dataset, start=i + 1), desc="Exporting test images"):
-        img_dest_path = (
-            dataset_path
-            / "imagesTs"
-            / f"sub_{j:03}_0000.nii.gz"
-        )
-        subjects_ids[f"{j:03}"] = data.participant_id
-
-        data.image.save(img_dest_path)
+    subjects_ids.update(dict(test_results))
 
     dataset_description = {
         "channel_names": {"0": "T1"},
@@ -129,7 +150,7 @@ def bids_to_nnunet(
             "background": 0,
             "perisinusal_fluid": 1,
         },
-        "numTraining": i + 1,
+        "numTraining": cnt_training,
         "file_ending": ".nii.gz",
     }
 
@@ -138,3 +159,21 @@ def bids_to_nnunet(
 
     with open(dataset_path / "subject_ids.json", "w+") as f:
         json.dump(subjects_ids, f, indent=4)
+
+
+def _save_train_sample(i, data, dataset_path):
+    img_dest_path = dataset_path / "imagesTr" / f"sub_{i:03}_0000.nii.gz"
+    seg_dest_path = dataset_path / "labelsTr" / f"sub_{i:03}.nii.gz"
+
+    data.image.save(img_dest_path)
+    data.gt.save(seg_dest_path)
+
+    return f"{i:03}", data.participant_id
+
+
+def _save_test_sample(j, data, dataset_path):
+    img_dest_path = dataset_path / "imagesTs" / f"sub_{j:03}_0000.nii.gz"
+
+    data.image.save(img_dest_path)
+
+    return f"{j:03}", data.participant_id
