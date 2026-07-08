@@ -1,26 +1,22 @@
 from __future__ import annotations
+
 import json
 from pathlib import Path
+from shutil import copyfile
+
 import click
 from clinicadl.data.datasets import BidsDataset
 from clinicadl.io.bids import BidsFileType
 from clinicadl.split import SingleSplit
 from clinicadl.transforms import TransformsHandler
 from clinicadl.transforms.config import ToCanonicalConfig
-from tqdm import tqdm
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
-
-class _BidsFileTypeParam(click.ParamType[BidsFileType]):
-    def convert(self, value, param, ctx) -> BidsFileType:
-        try:
-            dict_ = json.loads(value)
-            return BidsFileType(**dict_)
-        except ValueError:
-            self.fail(f"{value!r} is not a valid integer", param, ctx)
-
+from ..utils import BidsFileTypeParam
 
 NNUNET_RAW = "nnUNet_raw"
+NNUNET_RESULTS = "nnUNet_results"
 
 
 @click.command(no_args_is_help=True)
@@ -34,11 +30,11 @@ NNUNET_RAW = "nnUNet_raw"
 )
 @click.argument(
     "img_file_type",
-    type=_BidsFileTypeParam(),
+    type=BidsFileTypeParam(),
 )
 @click.argument(
     "mask_file_type",
-    type=_BidsFileTypeParam(),
+    type=BidsFileTypeParam(),
     nargs=-1,
 )
 @click.option(
@@ -83,7 +79,7 @@ def bids_to_nnunet(
         mask_file_type (str) : A dictionary describing the segmentation masks to get in the BIDS directory. It must be parameters accepted by clinicadl.io.BidsFileType. Multiple values can be passed (if multiple raters).
 
     Example:\n
-        dural-perisinus-seg bids-to-nnunet data/my_bids '{"suffix": "dante", "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater1"}, "data_type": "anat"}' 0
+        dural-perisinus-seg bids-to-nnunet data/my_bids '{"suffix": "dante", "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater1"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2"}, "data_type": "anat"}'
     """
     cnt_training = 0
     subjects_ids = {}
@@ -177,3 +173,73 @@ def _save_test_sample(j, data, dataset_path):
     data.image.save(img_dest_path)
 
     return f"{j:03}", data.participant_id
+
+
+@click.command(no_args_is_help=True)
+@click.argument(
+    "output_dir",
+    type=Path,
+)
+@click.argument(
+    "dataset_id",
+    type=int,
+)
+@click.option(
+    "--bids_output_name",
+    type=str,
+    default="bids_pred",
+    show_default=True,
+    help="The name to give to the output BIDS.",
+)
+@click.option(
+    "--nnunet_raw_data_dir",
+    type=Path,
+    default=Path("data") / NNUNET_RAW,
+    show_default=True,
+    help="The nnUNet_raw directory.",
+)
+def nnunet_outputs_to_bids(
+    output_dir: Path,
+    dataset_id: int,
+    bids_output_name: str,
+    nnunet_raw_data_dir: Path,
+) -> None:
+    """
+    Convert the outputs of 'nnUNetv2_predict' to a BIDS directory.
+
+    Args:\n
+        output_dir (Path) : The path to the predictions of nnUNet.
+        dataset_id (int) : The id given to the dataset (in nnUNet_raw).
+
+    Example:\n
+        dural-perisinus-seg nnunet-outputs-to-bids data/nnUNet_results/Dataset000_dante/nnUNetTrainer_1epoch__nnUNetPlans__3d_fullres/predictionsTs 0
+    """
+    bids_output = output_dir.parent / bids_output_name
+
+    for dataset in nnunet_raw_data_dir.glob("Dataset*"):
+        id_ = int(dataset.name.split("_")[0].replace("Dataset", ""))
+        if id_ == dataset_id:
+            break
+
+    with open(dataset / "subject_ids.json", "r") as f:
+        ids = json.load(f)
+
+    for pred in output_dir.glob("*.nii.gz"):
+        id_ = pred.stem.replace("sub_", "").split(".")[0]
+        participant = ids[id_]
+        dest_dir = bids_output / f"{participant}" / "ses-M000" / "anat"
+        dest_dir.mkdir(exist_ok=True, parents=True)
+        copyfile(
+            pred,
+            dest_dir / f"{participant}_ses-M000_dseg.nii.gz",
+        )
+
+    with open(bids_output / "dataset_description.json", "w") as f:
+        json.dump(
+            {
+                "Name": "Predictions from nnUNet",
+                "BIDSVersion": "1.11.0",
+                "DatasetType": "derivative",
+            },
+            f,
+        )
