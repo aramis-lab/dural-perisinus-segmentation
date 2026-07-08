@@ -61,3 +61,29 @@ class clDiceMetric(DiceMetric):
     """
 
     _metric_computation = staticmethod(_cl_dice)
+
+class VolumeMetric(Metric):
+    """
+    Compute the volume of fluid.
+    """
+
+    def __init__(self, image_key: str):
+        self.image_key = image_key
+        super().__init__()
+
+    def _accumulate(self, batch):
+        return torch.tensor(
+            [
+                _get_volume(
+                    sample[self.image_key].tensor.squeeze(0).numpy(),
+                    tuple(sample[self.image_key].spacing),
+                )
+                for sample in batch
+            ]
+        )
+
+    def _aggregate(self, data: torch.Tensor):
+        return data.mean().item()
+    
+def _get_volume(mask: np.ndarray, spacing: tuple[float, float, float]) -> float:
+    return mask.sum() * np.prod(spacing)

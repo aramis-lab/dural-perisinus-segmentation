@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from ..utils import BidsFileTypeParam
-from .metrics import DiceMetric, clDiceMetric
+from .metrics import DiceMetric, clDiceMetric, VolumeMetric
 
 
 @click.command(no_args_is_help=True)
@@ -38,6 +38,7 @@ def evaluate(
     metrics = MetricsHandler(
         cl_dice=clDiceMetric(pred_key="image", label_key="gt"),
         dice=DiceMetric(pred_key="image", label_key="gt"),
+        pred_volume=VolumeMetric(image_key="image"),
     )
     metrics.init_metrics()
     for mask in mask_file_type:
