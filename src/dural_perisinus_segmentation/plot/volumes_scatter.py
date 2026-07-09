@@ -1,3 +1,5 @@
+# A scatter plot of the volumes. Figure 10a.
+
 # %%
 import pandas as pd
 from dural_perisinus_segmentation.plot.utils import scatterplots, get_pvalues

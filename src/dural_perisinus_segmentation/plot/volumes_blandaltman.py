@@ -1,3 +1,5 @@
+# A Bland-Altman plot of the volumes. Figure 10b.
+
 # %%
 import pandas as pd
 from dural_perisinus_segmentation.plot.utils import bland_altman_plots

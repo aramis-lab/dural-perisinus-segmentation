@@ -1,3 +1,5 @@
+# To plot the segmentation metrics (DSC and clDice). Figure 9.
+
 # %%
 import matplotlib.pyplot as plt
 import pandas as pd
