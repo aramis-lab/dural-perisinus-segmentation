@@ -38,7 +38,6 @@ def evaluate(
     metrics = MetricsHandler(
         cl_dice=clDiceMetric(pred_key="image", label_key="gt"),
         dice=DiceMetric(pred_key="image", label_key="gt"),
-        pred_volume=VolumeMetric(image_key="image"),
     )
     metrics.init_metrics()
     for mask in mask_file_type:
@@ -69,3 +68,17 @@ def evaluate(
             path=bids_out.build_path(tsv_file_type),
             details_path=bids_out.build_path(detailed_tsv_file_type),
         )
+
+    volumes = MetricsHandler(pred_volume=VolumeMetric(image_key="image"))
+    volumes.init_metrics()
+    Parallel(n_jobs=-1, require="sharedmem")(
+        delayed(volumes)(preds)
+        for preds in tqdm(
+            loader, total=len(loader), desc="Computing volumes", unit="batches"
+        )
+    )
+    volumes.aggregate()
+    volumes.save(
+        path=bids_output / "volumes.tsv",
+        details_path=bids_output / "volumesDetails.tsv",
+    )
