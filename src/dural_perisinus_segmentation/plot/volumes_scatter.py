@@ -1,6 +1,7 @@
 # %%
 import pandas as pd
-from dural_perisinus_segmentation.plot.utils import scatterplots, get_volume_pvalues
+from dural_perisinus_segmentation.plot.utils import scatterplots, get_pvalues
+import matplotlib.pyplot as plt
 
 PRED_VOLUMES = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/volumesDetails.tsv"
 RATERS_VOLUMES = "../../../data/bids/rater1-SL_rater2-DD_volumesDetails.tsv"
@@ -58,23 +59,25 @@ df = df.rename(
 )
 
 # %%
-scatterplots(
+f, ax = scatterplots(
     df,
     plots=[(RATER_1_KEY, RATER_2_KEY), (RATER_1_KEY, MODEL_KEY), (RATER_2_KEY, MODEL_KEY)],
     hue="medical_condition",
     min_=0,
     max_=max_,
-    figsize=(15, 6),
+    figsize=(15, 5),
     grid_spacing=2,
 )
+plt.tight_layout()
 # %%
-get_volume_pvalues(
+get_pvalues(
     df,
     comparisons=[
         ((RATER_1_KEY, RATER_2_KEY), (RATER_1_KEY, MODEL_KEY)),
         ((RATER_1_KEY, RATER_2_KEY), (RATER_2_KEY, MODEL_KEY)),
         ((RATER_1_KEY, MODEL_KEY), (RATER_2_KEY, MODEL_KEY)),
     ],
+    quantity="volume",
     mode="related",
 )
 # %%

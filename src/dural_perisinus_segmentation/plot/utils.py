@@ -24,6 +24,16 @@ plt.style.use("ggplot")
 PALETTE = sns.color_palette("colorblind")
 
 
+def get_mean_and_conf(series: pd.Series, conf_format: str = ".3f") -> str:
+    """
+    Compute mean and 95% confidence interval (with Student's t distribution) and
+    format the results in a string.
+    """
+    mean = series.mean()
+    conf = compute_t_conf(series)
+    return f"{mean:.2f} [{conf[0]:{conf_format}}, {conf[1]:{conf_format}}]"
+
+
 def bland_altman_plots(
     df: pd.DataFrame,
     plots: Sequence[tuple[str, str]],
@@ -35,7 +45,6 @@ def bland_altman_plots(
     titles: Optional[Sequence[str]] = None,
     figsize: Optional[tuple[float, float]] = None,
     grid_spacing: Optional[float] = None,
-    *args,
     **kwargs,
 ) -> tuple[Figure, Axes]:
     """
@@ -55,7 +64,7 @@ def bland_altman_plots(
         To plot points of different color depending on a category.
     hue_order : Optional[Sequence[str]], default=None
         The order the categories.
-    stats_x_pos : Optional[float], default=None
+    stats_x_pos : Optional[Sequence[float]], default=None
         Position where the mean value and limits of agreements are printed for each plot.
         If ``None``, they are not printed.
     titles : Optional[Sequence[str]], default=None
@@ -70,6 +79,10 @@ def bland_altman_plots(
     tuple[Figure, Axes]
     """
     f, ax = plt.subplots(1, len(plots), figsize=figsize, sharey=True)
+
+    if not stats_x_pos:
+        stats_x_pos = [None] * len(plots)
+
     for i, ((x, y), title, pos) in enumerate(zip(plots, titles, stats_x_pos)):
         _bland_altman_plot(
             df,
@@ -85,6 +98,7 @@ def bland_altman_plots(
             y_label=(i == 0),
             title=title,
             grid_spacing=grid_spacing,
+            **kwargs,
         )
 
     return f, ax
@@ -104,7 +118,6 @@ def _bland_altman_plot(
     y_label: bool = True,
     title: str = None,
     grid_spacing: Optional[float] = None,
-    *args,
     **kwargs,
 ) -> None:
     """
@@ -158,7 +171,6 @@ def _bland_altman_plot(
         hue_order=hue_order,
         ax=ax,
         palette=PALETTE,
-        *args,
         **kwargs,
     )
     ax.axhline(mean, color=PALETTE[2], linestyle="--")
@@ -200,7 +212,7 @@ def _bland_altman_plot(
         ax.set_ylabel("")
 
     if grid_spacing is not None:
-        ax.yaxis.set_major_locator(MultipleLocator(grid_spacing))
+        ax.xaxis.set_major_locator(MultipleLocator(grid_spacing))
         ax.yaxis.set_major_locator(MultipleLocator(grid_spacing))
 
 
@@ -215,6 +227,36 @@ def scatterplots(
     figsize: Optional[tuple[float, float]] = None,
     grid_spacing: Optional[float] = None,
 ) -> tuple[Figure, Axes]:
+    """
+    Multiple x-y plot.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The data.
+    plots : Sequence[tuple[str, str]]
+        The x and the y variables for each plot.
+    hue : Optional[str], default=None
+        The categories to plot points of different colors.
+    hue_order : Optional[Sequence[str]], default=None
+        Th order of the. categories.
+    min_ : Optional[float], default=None
+        The lower value of the x- adn y-axis. If ``None``,
+        it will be automatically set.
+    max_ : Optional[float], default=None
+        The upper value of the x- adn y-axis. If ``None``,
+        it will be automatically set.
+    print_metrics : bool, default=True
+        Whether to print VER, AVER and Pearson r.
+    figsize : Optional[tuple[float, float]], default=None
+        The size of the figure.
+    grid_spacing : Optional[float], default=None
+        Spacing between two grid lines.
+
+    Returns
+    -------
+    tuple[Figure, Axes]
+    """
     f, ax = plt.subplots(1, len(plots), figsize=figsize)
     for i, (x, y) in enumerate(plots):
         _scatterplot(
@@ -281,13 +323,13 @@ def _scatterplot(
                     [],
                     [],
                     color="none",
-                    label=r"$\bf{{VER}}$: {}".format(_get_ver(df, x, y)[0]),
+                    label=r"$\bf{{VER}}$: {}".format(get_ver(df, x, y, conf_format=".2f")[0]),
                 ),
                 Line2D(
                     [],
                     [],
                     color="none",
-                    label=r"$\bf{{AVER}}$: {}".format(_get_aver(df, x, y)[0]),
+                    label=r"$\bf{{AVER}}$: {}".format(get_aver(df, x, y,  conf_format=".2f")[0]),
                 ),
                 Line2D(
                     [],
@@ -339,10 +381,10 @@ def get_pvalues(
     for pair1, pair2 in comparisons:
         print("-" * 5)
         print(
-            f"VER({pair1}) vs VER({pair2}): {mode.get_test()(_get_ver(df, pair1[0], pair1[1])[1], _get_ver(df, pair2[0], pair2[1])[1])[1]}"
+            f"VER({pair1}) vs VER({pair2}): {mode.get_test()(get_ver(df, pair1[0], pair1[1])[1], get_ver(df, pair2[0], pair2[1])[1])[1]}"
         )
         print(
-            f"AVER({pair1}) vs AVER({pair2}): {mode.get_test()(_get_aver(df, pair1[0], pair1[1])[1], _get_aver(df, pair2[0], pair2[1])[1])[1]}"
+            f"AVER({pair1}) vs AVER({pair2}): {mode.get_test()(get_aver(df, pair1[0], pair1[1])[1], get_aver(df, pair2[0], pair2[1])[1])[1]}"
         )
 
     print("=" * 5)
@@ -351,23 +393,25 @@ def get_pvalues(
         print(f"{quantity}({x}) vs {quantity}({y}): {mode.get_test()(df[x], df[y])[1]}")
 
 
-def _get_ver(df: pd.DataFrame, x: str, y: str) -> tuple[str, np.ndarray]:
+def get_ver(
+    df: pd.DataFrame, x: str, y: str, conf_format: str = ".3f"
+) -> tuple[str, np.ndarray]:
     """
-    Compute VER and format the result.
+    Compute VER, confidence interval (95% with Student's t) and format the result.
     """
     ver = 2 * (df[y] - df[x]) / (df[x] + df[y])
-    conf_ver = compute_t_conf(ver)
-    return f"{ver.mean():.2f} [{conf_ver[0]:.2f}, {conf_ver[1]:.2f}]", ver.to_numpy()
+    return get_mean_and_conf(ver, conf_format), ver.to_numpy()
 
 
-def _get_aver(df: pd.DataFrame, x: str, y: str) -> tuple[str, np.ndarray]:
+def get_aver(
+    df: pd.DataFrame, x: str, y: str, conf_format: str = ".3f"
+) -> tuple[str, np.ndarray]:
     """
-    Compute AVER and format the result.
+    Compute AVER, confidence interval (95% with Student's t) and format the result.
     """
     aver = 2 * (df[y] - df[x]).abs() / (df[x] + df[y])
-    conf_aver = compute_t_conf(aver)
     return (
-        f"{aver.mean():.2f} [{conf_aver[0]:.2f}, {conf_aver[1]:.2f}]",
+        get_mean_and_conf(aver, conf_format),
         aver.to_numpy(),
     )
 
@@ -376,7 +420,7 @@ def _get_pearson_str(df: pd.DataFrame, x: str, y: str) -> str:
     """
     Compute pearson correlation and format the result.
     """
-    df = df.dropna().sort_values("participant_id")
+    df = df[[x, y]].dropna().sort_values("participant_id")
     pearson = pearsonr(df[x], df[y])
     return f"{pearson.statistic:.2f} [{pearson.confidence_interval().low:.2f}, {pearson.confidence_interval().high:.2f}]"
 

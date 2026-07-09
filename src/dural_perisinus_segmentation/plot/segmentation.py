@@ -2,7 +2,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from dural_perisinus_segmentation.plot.utils import (
-    boxplot
+    boxplot,
+    get_mean_and_conf
 )
 
 EVALUATION_RATER_1 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-SL_label-dante_evaluationDetails.tsv"
@@ -53,10 +54,9 @@ Y_LABEL = "score ↑ ∈ [0, 1]"
 HUE_ORDER = [RATER_1_KEY, RATER_2_KEY, "inter-rater"]
 
 df["metric"] = df["metric"].apply(
-    lambda x: x.replace("cl_dice", "clDice").replace("dice", "Dice")
+    lambda x: x.replace("cl_dice", "clDice").replace("dice", "DSC")
 )
 df = df.rename(columns={"score": Y_LABEL})
-metrics = df["metric"].unique()
 pairs_hue = [
     (0, 1),  # tested on rater 1  vs  tested on rater 2    → shortest bar
     (1, 2),  # tested on rater 2  vs  inter-rater          → medium bar
@@ -67,7 +67,7 @@ f, ax = boxplot(
     x="metric",
     y=Y_LABEL,
     hue="rater",
-    order=metrics,
+    order=["DSC", "clDice"],
     hue_order=HUE_ORDER,
     legend_loc="lower center",
     bbox_to_anchor=(0.65, 0),
@@ -77,5 +77,18 @@ f, ax = boxplot(
 )
 plt.tight_layout()
 plt.show()
+
+# %%
+print("summary")
+print("-------")
+print("inter-rater")
+print(" DSC: ", get_mean_and_conf(df[(df["rater"] == "inter-rater") & (df["metric"] == "DSC")][Y_LABEL]))
+print(" clDice: ", get_mean_and_conf(df[(df["rater"] == "inter-rater") & (df["metric"] == "clDice")][Y_LABEL]))
+print(RATER_1_KEY)
+print(" DSC: ", get_mean_and_conf(df[(df["rater"] == RATER_1_KEY) & (df["metric"] == "DSC")][Y_LABEL]))
+print(" clDice: ", get_mean_and_conf(df[(df["rater"] == RATER_1_KEY) & (df["metric"] == "clDice")][Y_LABEL]))
+print(RATER_2_KEY)
+print(" DSC: ", get_mean_and_conf(df[(df["rater"] == RATER_2_KEY) & (df["metric"] == "DSC")][Y_LABEL]))
+print(" clDice: ", get_mean_and_conf(df[(df["rater"] == RATER_2_KEY) & (df["metric"] == "clDice")][Y_LABEL]))
 
 # %%

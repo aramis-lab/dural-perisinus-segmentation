@@ -58,13 +58,13 @@ df = df.rename(
 )
 
 # %%
-bland_altman_plots(
+f, ax = bland_altman_plots(
     df,
     plots=[(RATER_1_KEY, RATER_2_KEY), (RATER_1_KEY, MODEL_KEY), (RATER_2_KEY, MODEL_KEY)],
     hue="medical_condition",
     quantity="volume",
     unit="$cm^3$",
-    figsize=(15,6),
+    figsize=(15,4),
     titles=[("DD vs SLn"), ("automatic model vs SLn"), ("automatic model vs DD")],
     grid_spacing=1,
 )

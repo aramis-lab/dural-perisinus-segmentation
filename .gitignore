@@ -4,6 +4,9 @@
 # data
 /data
 
+# plots
+/plot
+
 # python cache
 *.pyc
 
