@@ -5,17 +5,17 @@ This experiment has been run with the package manager Pixi to ensure a reproduci
 To reproduce the experiment, follow these steps:
 
 1. [Install Pixi](https://pixi.prefix.dev/latest/installation/)
-2. Clone this repo
+2. Clone this repo:
 ```bash
 git clone https://github.com/aramis-lab/dural-perisinus-segmentation.git && cd dural-perisinus-segmentation
 ```
 
-3. Install the Python environment
+3. Install the Python environment:
 ```bash
 pixi install
 ```
 
-4. Organise your data
+4. Organise your data:
 
 Your data should be organised following the [BIDS](https://bids.neuroimaging.io/index.html) standard.
 Besides, a TSV file with the ids of the participants is required, e.g.:
@@ -23,6 +23,7 @@ Besides, a TSV file with the ids of the participants is required, e.g.:
 participant_id  session_id  age sex medical_condition
 sub-XXX         ses-M000    35  F   control
 sub-YYY         ses-M000    25  F   IIH
+...
 ```
 > **Important**:
 > - Even if it is useless here, the column "session_id" is **required**. You can put "ses-M000" everywhere.

@@ -1,6 +1,6 @@
 # Deep Learning-Based 3T MRI Segmentation of Dural Perisinus for Assessment of Human Meningeal Lymphatics
 
-This repository is associated to the paper:
+This repository is associated with the paper:
 **PAPER**
 
 The automatic segmentation model was trained using the [nnUNet](https://github.com/MIC-DKFZ/nnUNet) framework.
