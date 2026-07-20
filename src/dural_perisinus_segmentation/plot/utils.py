@@ -323,13 +323,17 @@ def _scatterplot(
                     [],
                     [],
                     color="none",
-                    label=r"$\bf{{VER}}$: {}".format(get_ver(df, x, y, conf_format=".2f")[0]),
+                    label=r"$\bf{{VER}}$: {}".format(
+                        get_ver(df, x, y, conf_format=".2f")[0]
+                    ),
                 ),
                 Line2D(
                     [],
                     [],
                     color="none",
-                    label=r"$\bf{{AVER}}$: {}".format(get_aver(df, x, y,  conf_format=".2f")[0]),
+                    label=r"$\bf{{AVER}}$: {}".format(
+                        get_aver(df, x, y, conf_format=".2f")[0]
+                    ),
                 ),
                 Line2D(
                     [],
@@ -351,7 +355,7 @@ def _scatterplot(
     return ax
 
 
-def get_pvalues(
+def get_volume_pvalues(
     df: pd.DataFrame,
     comparisons: Sequence[tuple[tuple[str, str], tuple[str, str]]],
     quantity: str,
@@ -381,16 +385,47 @@ def get_pvalues(
     for pair1, pair2 in comparisons:
         print("-" * 5)
         print(
-            f"VER({pair1}) vs VER({pair2}): {mode.get_test()(get_ver(df, pair1[0], pair1[1])[1], get_ver(df, pair2[0], pair2[1])[1])[1]}"
+            f"VER{pair1} vs VER{pair2}: {mode.get_test()(get_ver(df, pair1[0], pair1[1])[1], get_ver(df, pair2[0], pair2[1])[1])[1]}"
         )
         print(
-            f"AVER({pair1}) vs AVER({pair2}): {mode.get_test()(get_aver(df, pair1[0], pair1[1])[1], get_aver(df, pair2[0], pair2[1])[1])[1]}"
+            f"AVER{pair1} vs AVER{pair2}: {mode.get_test()(get_aver(df, pair1[0], pair1[1])[1], get_aver(df, pair2[0], pair2[1])[1])[1]}"
         )
 
     print("=" * 5)
     individual_elem = set([x for z in comparisons for y in z for x in y])
     for x, y in combinations(individual_elem, 2):
-        print(f"{quantity}({x}) vs {quantity}({y}): {mode.get_test()(df[x], df[y])[1]}")
+        print(
+            f"{quantity}('{x}') vs {quantity}('{y}'): {mode.get_test()(df[x], df[y])[1]}"
+        )
+
+
+def get_subgroup_pvalues(
+    df: pd.DataFrame,
+    group_col: str,
+    value_col: str,
+) -> None:
+    """
+    Compute p-values of t-test comparing a distribution for two groups.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The data.
+    group_col : str
+        The column containing the group to which each line is associated.
+    value_col : str
+        The column containing the distribution.
+    """
+    mode = TtestMode.INDEP
+    for (
+        group1,
+        group2,
+    ) in combinations(df[group_col].unique(), 2):
+        values_g1 = df[df[group_col] == group1][value_col]
+        values_g2 = df[df[group_col] == group2][value_col]
+        print(
+            f"'{group1}' ({get_mean_and_conf(values_g1)}) vs '{group2}' ({get_mean_and_conf(values_g2)}): {mode.get_test()(values_g1, values_g2)[1]}"
+        )
 
 
 def get_ver(
