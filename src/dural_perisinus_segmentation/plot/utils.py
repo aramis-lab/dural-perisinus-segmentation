@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 plt.style.use("ggplot")
 PALETTE = sns.color_palette("colorblind")
 
+HIGHLIGHTED_EDGE = 1.3
+UNHIGHLIGHTED_EDGE = 0.3
 
 def get_mean_and_conf(series: pd.Series, conf_format: str = ".3f") -> str:
     """
@@ -41,6 +43,8 @@ def bland_altman_plots(
     unit: str,
     hue: Optional[str] = None,
     hue_order: Optional[Sequence[str]] = None,
+    highlight_points: Optional[np.ndarray | pd.Series] = None,
+    points_legend: Optional[Sequence[str]] = None,
     stats_x_pos: Optional[Sequence[float]] = None,
     titles: Optional[Sequence[str]] = None,
     figsize: Optional[tuple[float, float]] = None,
@@ -64,6 +68,12 @@ def bland_altman_plots(
         To plot points of different color depending on a category.
     hue_order : Optional[Sequence[str]], default=None
         The order the categories.
+    highlight_points : Optional[np.ndarray | pd.Series], default=None
+        Points to highlight. A series/array of booleans, whose length must be equal
+        to the length of ``df``.
+    points_legend : Optional[Sequence[str]], default=None
+        A sequence of two strings: the legend for the highlighted points and
+        and the legend for the others.
     stats_x_pos : Optional[Sequence[float]], default=None
         Position where the mean value and limits of agreements are printed for each plot.
         If ``None``, they are not printed.
@@ -93,9 +103,11 @@ def bland_altman_plots(
             ax=ax[i],
             hue=hue,
             hue_order=hue_order,
+            highlight_points=highlight_points,
+            points_legend=points_legend,
             stats_x_pos=pos,
-            legend=(i == 0),
-            y_label=(i == 0),
+            legend=(i == 1),
+            y_label=(i == 1),
             title=title,
             grid_spacing=grid_spacing,
             **kwargs,
@@ -113,6 +125,8 @@ def _bland_altman_plot(
     ax: Optional[Axes] = None,
     hue: Optional[str] = None,
     hue_order: Optional[Sequence[str]] = None,
+    highlight_points: Optional[np.ndarray | pd.Series] = None,
+    points_legend: Optional[Sequence[str]] = None,
     stats_x_pos: Optional[float] = None,
     legend: bool = True,
     y_label: bool = True,
@@ -128,8 +142,15 @@ def _bland_altman_plot(
     diff = df[y] - df[x]
     dict_ = {"diff": diff, "avg": average}
 
+    if highlight_points is None:
+        highlight_points = np.array([True] * len(df))
+
+    has_highlighted = highlight_points.sum() != len(df)
+
     if hue is not None:
         dict_[hue] = df[hue]
+
+    markersize = 50
 
     df = pd.DataFrame(dict_)
 
@@ -164,15 +185,79 @@ def _bland_altman_plot(
     )
 
     ax = sns.scatterplot(
-        df,
+        df[highlight_points],
         x="avg",
         y="diff",
         hue=hue,
         hue_order=hue_order,
         ax=ax,
+        s=markersize,
         palette=PALETTE,
+        edgecolors="black",
+        linewidth=HIGHLIGHTED_EDGE if has_highlighted else UNHIGHLIGHTED_EDGE,
         **kwargs,
     )
+
+    if has_highlighted:
+        sns.scatterplot(
+                df[~highlight_points],
+                x="avg",
+                y="diff",
+                hue=hue,
+                hue_order=hue_order,
+                ax=ax,
+                palette=PALETTE,
+                edgecolors="black",
+                s=markersize,
+                linewidth=UNHIGHLIGHTED_EDGE,
+                legend=False,
+                **kwargs,
+            )
+
+        # Modify the legend to add highlighting
+        fig_legend = ax.legend()
+
+        for handle in fig_legend.legend_handles:
+            if hasattr(handle, "set_markeredgewidth"):
+                handle.set_markeredgewidth(0)
+            if hasattr(handle, "set_markeredgecolor"):
+                handle.set_markeredgecolor("none")
+
+        handles = fig_legend.legend_handles
+        labels = [text.get_text() for text in fig_legend.texts]
+
+        handles.extend(
+            [
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    markersize=np.sqrt(markersize),
+                    markerfacecolor="none",
+                    markeredgecolor="black",
+                    markeredgewidth=HIGHLIGHTED_EDGE,
+                    linestyle="none",
+                ),
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    markersize=np.sqrt(markersize),
+                    markerfacecolor="none",
+                    markeredgecolor="black",
+                    markeredgewidth=UNHIGHLIGHTED_EDGE,
+                    linestyle="none",
+                ),
+            ]
+        )
+
+        labels.extend([points_legend[0], points_legend[1]])
+
+        fig_legend.remove()
+        fig_legend = ax.legend(handles=handles, labels=labels, title=None)
+    else:
+        fig_legend = ax.legend(title=None)
+
     ax.axhline(mean, color=PALETTE[2], linestyle="--")
     ax.axhspan(mean_ci[0], mean_ci[1], color=PALETTE[2], alpha=0.1)
     ax.axhline(loa_low, color=PALETTE[3], linestyle="--")
@@ -181,7 +266,6 @@ def _bland_altman_plot(
     ax.axhspan(loa_high_ci[0], loa_high_ci[1], color=PALETTE[3], alpha=0.1)
     ax.set_xlabel(f"Average {quantity} ({unit})")
     ax.set_ylabel(f"{quantity.capitalize()} difference ({unit})")
-    leg = ax.legend(title=None)
 
     if title:
         ax.set_title(title, fontsize=10)
@@ -206,7 +290,7 @@ def _bland_altman_plot(
         )
 
     if not legend:
-        leg.remove()
+        fig_legend.remove()
 
     if not y_label:
         ax.set_ylabel("")
@@ -223,6 +307,8 @@ def scatterplots(
     hue_order: Optional[Sequence[str]] = None,
     min_: Optional[float] = None,
     max_: Optional[float] = None,
+    highlight_points: Optional[np.ndarray | pd.Series] = None,
+    points_legend: Optional[Sequence[str]] = None,
     print_metrics: bool = True,
     figsize: Optional[tuple[float, float]] = None,
     grid_spacing: Optional[float] = None,
@@ -246,6 +332,12 @@ def scatterplots(
     max_ : Optional[float], default=None
         The upper value of the x- adn y-axis. If ``None``,
         it will be automatically set.
+    highlight_points : Optional[np.ndarray | pd.Series], default=None
+        Points to highlight. A series/array of booleans, whose length must be equal
+        to the length of ``df``.
+    points_legend : Optional[Sequence[str]], default=None
+        A sequence of two strings: the legend for the highlighted points and
+        and the legend for the others.
     print_metrics : bool, default=True
         Whether to print VER, AVER and Pearson r.
     figsize : Optional[tuple[float, float]], default=None
@@ -267,6 +359,8 @@ def scatterplots(
             hue_order=hue_order,
             min_=min_,
             max_=max_,
+            highlight_points=highlight_points,
+            points_legend=points_legend,
             print_metrics=print_metrics,
             ax=ax[i],
             grid_spacing=grid_spacing,
@@ -284,6 +378,8 @@ def _scatterplot(
     hue_order: Optional[Sequence[str]] = None,
     min_: Optional[float] = None,
     max_: Optional[float] = None,
+    highlight_points: Optional[np.ndarray | pd.Series] = None,
+    points_legend: Optional[Sequence[str]] = None,
     print_metrics: bool = True,
     ax: Optional[Axes] = None,
     grid_spacing: Optional[float] = None,
@@ -297,20 +393,84 @@ def _scatterplot(
     if max_ is None:
         max_ = max(df[x].max(), df[y].max())
 
+    markersize = 75
+
+    if highlight_points is None:
+        highlight_points = np.array([True] * len(df))
+
+    has_highlighted = highlight_points.sum() != len(df)
+
     ax = sns.scatterplot(
-        df,
+        df[highlight_points],
         x=x,
         y=y,
+        ax=ax,
         hue=hue,
         hue_order=hue_order,
+        s=markersize,
         palette=PALETTE,
-        ax=ax,
+        edgecolors="black",
+        linewidth=HIGHLIGHTED_EDGE if has_highlighted else UNHIGHLIGHTED_EDGE,
     )
     seaborn_legend = ax.legend()
     ax.set_aspect("equal", adjustable="box")
     ax.plot(
         np.linspace(min_, max_), np.linspace(min_, max_), c=PALETTE[2], linestyle="--"
     )
+
+    if has_highlighted:
+        sns.scatterplot(
+            df[~highlight_points],
+            x=x,
+            y=y,
+            ax=ax,
+            hue=hue,
+            hue_order=hue_order,
+            s=markersize,
+            palette=PALETTE,
+            edgecolors="black",
+            linewidth=UNHIGHLIGHTED_EDGE,
+        )
+
+        # Modify the legend to add highlighting
+        for handle in seaborn_legend.legend_handles:
+            if hasattr(handle, "set_markeredgewidth"):
+                handle.set_markeredgewidth(0)
+            if hasattr(handle, "set_markeredgecolor"):
+                handle.set_markeredgecolor("none")
+
+        handles = seaborn_legend.legend_handles
+        labels = [text.get_text() for text in seaborn_legend.texts]
+
+        handles.extend(
+            [
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    markersize=np.sqrt(markersize),
+                    markerfacecolor="none",
+                    markeredgecolor="black",
+                    markeredgewidth=HIGHLIGHTED_EDGE,
+                    linestyle="none",
+                ),
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    markersize=np.sqrt(markersize),
+                    markerfacecolor="none",
+                    markeredgecolor="black",
+                    markeredgewidth=UNHIGHLIGHTED_EDGE,
+                    linestyle="none",
+                ),
+            ]
+        )
+
+        labels.extend([points_legend[0], points_legend[1]])
+
+        seaborn_legend.remove()
+        seaborn_legend = ax.legend(handles=handles, labels=labels)
 
     if grid_spacing is not None:
         ax.xaxis.set_major_locator(MultipleLocator(grid_spacing))
@@ -468,6 +628,8 @@ def boxplot(
     order: Optional[Sequence[str]] = None,
     hue_order: Optional[Sequence[str]] = None,
     plot_points: bool = True,
+    highlight_points: Optional[np.ndarray | pd.Series] = None,
+    points_legend: Optional[Sequence[str]] = None,
     plot_tests: bool = True,
     test_mode: str | TtestMode = "independent",
     y_space_above_last_value: float = 0.01,
@@ -495,6 +657,12 @@ def boxplot(
         Order for the distributions.
     plot_points : bool, default=True
         Whether to plot the points of the distributions.
+    highlight_points : Optional[np.ndarray | pd.Series], default=None
+        Points to highlight. A series/array of booleans, whose length must be equal
+        to the length of ``df``.
+    points_legend : Optional[Sequence[str]], default=None
+        A sequence of two strings: the legend for the highlighted points and
+        and the legend for the others.
     plot_tests : bool, default=True
         Whether to perform t-tests and plot the p-values significance.
     test_mode : str | TtestMode, default="independent"
@@ -526,9 +694,14 @@ def boxplot(
         bbox_to_anchor=bbox_to_anchor,
     )
     if plot_points:
+        if highlight_points is None:
+            highlight_points = np.array([True] * len(df))
+
+        has_highlighted = highlight_points.sum() != len(df)
+
         _swarmplot(
             ax,
-            df,
+            df[highlight_points],
             x,
             y,
             hue=hue,
@@ -536,7 +709,70 @@ def boxplot(
             hue_order=hue_order,
             legend_loc=legend_loc,
             bbox_to_anchor=bbox_to_anchor,
+            dot_border=HIGHLIGHTED_EDGE if has_highlighted else UNHIGHLIGHTED_EDGE,
         )
+        if has_highlighted:
+            _swarmplot(
+                ax,
+                df[~highlight_points],
+                x,
+                y,
+                hue=hue,
+                order=order,
+                hue_order=hue_order,
+                legend_loc=legend_loc,
+                bbox_to_anchor=bbox_to_anchor,
+                dot_border=UNHIGHLIGHTED_EDGE,
+            )
+
+            # Rebuild the legend from the artists currently on the Axes
+            handles, labels = ax.get_legend_handles_labels()
+
+            n_hues = len(hue_order)
+
+            # Keep only the boxplot handles
+            hue_handles = handles[:n_hues]
+            hue_labels = labels[:n_hues]
+
+            # Add the extra legend entry
+            hue_handles.append(
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    linestyle="",
+                    color="black",
+                    markerfacecolor="none",
+                    markeredgecolor="black",
+                    markeredgewidth=HIGHLIGHTED_EDGE,
+                    markersize=6,
+                )
+            )
+            hue_labels.append(points_legend[0])
+            hue_handles.append(
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    linestyle="",
+                    color="black",
+                    markerfacecolor="none",
+                    markeredgecolor="black",
+                    markeredgewidth=UNHIGHLIGHTED_EDGE,
+                    markersize=6,
+                ),
+            )
+            hue_labels.append(points_legend[1])
+
+            ax.legend(
+                handles=hue_handles,
+                labels=hue_labels,
+                handler_map={tuple: HandlerTuple(ndivide=None)},
+                handlelength=4,
+                loc=legend_loc,
+                bbox_to_anchor=bbox_to_anchor,
+            )
+
     if plot_tests:
         _plot_p_values(
             ax,
@@ -603,6 +839,7 @@ def _swarmplot(
     hue_order: Optional[Sequence[str]] = None,
     legend_loc: Optional[str] = None,
     bbox_to_anchor: tuple[float, float] = None,
+    dot_border: Optional[float] = None,
 ):
     """
     Swarmplot with seaborn to add points to a boxplot.
@@ -620,6 +857,7 @@ def _swarmplot(
         alpha=0.8,
         palette=PALETTE,
         dodge=True,
+        linewidth=dot_border,
     )
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(

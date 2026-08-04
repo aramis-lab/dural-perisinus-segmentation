@@ -66,6 +66,8 @@ f, ax = bland_altman_plots(
     hue="medical_condition",
     quantity="volume",
     unit="$cm^3$",
+    highlight_points=~df.isna().any(axis=1),
+    points_legend=["test scan", "training scan"],
     figsize=(15,4),
     titles=[("DD vs SLn"), ("automatic model vs SLn"), ("automatic model vs DD")],
     grid_spacing=1,

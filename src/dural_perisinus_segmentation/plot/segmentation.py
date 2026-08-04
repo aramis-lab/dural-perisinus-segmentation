@@ -2,6 +2,7 @@
 
 # %%
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from dural_perisinus_segmentation.plot.utils import (
@@ -74,15 +75,24 @@ pairs_hue = [
     (1, 2),  # tested on rater 2  vs  inter-rater          → medium bar
     (0, 2),  # tested on rater 1  vs  inter-rater          → longest bar
 ]
+
+test_participants = (
+    df.groupby("participant_id")
+    .apply(lambda x: x.isna().any().any())
+    .replace(True, np.nan)
+    .dropna()
+    .index
+)
 f, ax = boxplot(
     df=df,
     x="metric",
     y=Y_LABEL,
+    highlight_points=df["participant_id"].isin(test_participants),
+    points_legend=["test scan", "training scan"],
     hue="rater",
     order=["DSC", "clDice"],
     hue_order=HUE_ORDER,
-    legend_loc="lower center",
-    bbox_to_anchor=(0.65, 0),
+    legend_loc="lower left",
     test_mode="related",
     pairs_hue=pairs_hue,
     y_space_above_last_value=0.02,

@@ -9,7 +9,7 @@ import pandas as pd
 from dural_perisinus_segmentation.plot.utils import (
     get_aver,
     get_subgroup_pvalues,
-    get_ver,Œ
+    get_ver,
     get_volume_pvalues,
     scatterplots,
 )
@@ -80,6 +80,8 @@ f, ax = scatterplots(
     hue="medical_condition",
     min_=0,
     max_=max_,
+    highlight_points=~df.isna().any(axis=1),
+    points_legend=["test scan", "training scan"],
     figsize=(15, 5),
     grid_spacing=2,
 )
