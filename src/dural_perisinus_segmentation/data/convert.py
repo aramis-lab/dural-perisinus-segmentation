@@ -5,8 +5,9 @@ from pathlib import Path
 from shutil import copyfile
 
 import click
+import pandas as pd
 from clinicadl.data.datasets import BidsDataset
-from clinicadl.io.bids import BidsFileType
+from clinicadl.io.bids import Bids, BidsFileType
 from clinicadl.split import SingleSplit
 from clinicadl.transforms import TransformsHandler
 from clinicadl.transforms.config import ToCanonicalConfig
@@ -88,6 +89,10 @@ def bids_to_nnunet(
         bids = BidsDataset(
             bids_path,
             file_type=img_file_type,
+            data=pd.DataFrame.from_records(
+                list(Bids(bids_path).get_participants_sessions_with(mask)),
+                columns=["participant_id", "session_id"],
+            ),
             masks={"gt": mask},
             transforms=TransformsHandler(image_transforms=[ToCanonicalConfig()]),
         )
