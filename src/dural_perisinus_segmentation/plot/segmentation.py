@@ -94,7 +94,7 @@ f, ax = boxplot(
     hue_order=HUE_ORDER,
     legend_loc="lower left",
     test_mode="related",
-    pairs_hue=pairs_hue,
+    pairs_test=pairs_hue,
     y_space_above_last_value=0.02,
 )
 plt.tight_layout()
