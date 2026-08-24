@@ -628,12 +628,17 @@ def boxplot(
     order: Optional[Sequence[str]] = None,
     hue_order: Optional[Sequence[str]] = None,
     plot_points: bool = True,
+    point_size: float = 5,
     highlight_points: Optional[np.ndarray | pd.Series] = None,
     points_legend: Optional[Sequence[str]] = None,
     plot_tests: bool = True,
     test_mode: str | TtestMode = "independent",
     y_space_above_last_value: float = 0.01,
-    pairs_hue: Optional[Sequence[tuple[int, int]]] = None,
+    y_space_between_bars: float = 0.03,
+    y_space_above_bar: float = 0.01,
+    bar_h: float = 0.01,
+    pairs_test: Optional[Sequence[tuple[int, int]]] = None,
+    test_font_size: float = 11,
     figsize: Optional[tuple[float, float]] = None,
     legend_loc: Optional[str] = None,
     bbox_to_anchor: tuple[float, float] = None,
@@ -657,6 +662,8 @@ def boxplot(
         Order for the distributions.
     plot_points : bool, default=True
         Whether to plot the points of the distributions.
+    point_size : float, default=5.0
+        Size of the points.
     highlight_points : Optional[np.ndarray | pd.Series], default=None
         Points to highlight. A series/array of booleans, whose length must be equal
         to the length of ``df``.
@@ -671,6 +678,8 @@ def boxplot(
         The space between the last y value and the comparison bar.
     pairs_hue : Optional[Sequence[tuple[int, int]]], default=None
         Pairs on which the t-tests must be performed.
+    test_font_size : float, default=11.0
+        The font of the asterisks for the p-values.
     figsize : Optional[tuple[float, float]], default=None
         The size of the figure.
     legend_loc : Optional[str], default=None
@@ -692,6 +701,7 @@ def boxplot(
         figsize=figsize,
         legend_loc=legend_loc,
         bbox_to_anchor=bbox_to_anchor,
+        point_size=point_size,
     )
     if plot_points:
         if highlight_points is None:
@@ -709,7 +719,8 @@ def boxplot(
             hue_order=hue_order,
             legend_loc=legend_loc,
             bbox_to_anchor=bbox_to_anchor,
-            dot_border=HIGHLIGHTED_EDGE if has_highlighted else UNHIGHLIGHTED_EDGE,
+            point_border=HIGHLIGHTED_EDGE if has_highlighted else UNHIGHLIGHTED_EDGE,
+            point_size=point_size,
         )
         if has_highlighted:
             _swarmplot(
@@ -722,7 +733,8 @@ def boxplot(
                 hue_order=hue_order,
                 legend_loc=legend_loc,
                 bbox_to_anchor=bbox_to_anchor,
-                dot_border=UNHIGHLIGHTED_EDGE,
+                point_border=UNHIGHLIGHTED_EDGE,
+                point_size=point_size,
             )
 
             # Rebuild the legend from the artists currently on the Axes
@@ -784,6 +796,10 @@ def boxplot(
             mode=test_mode,
             pairs_hue=pairs_hue,
             y_space_above_last_value=y_space_above_last_value,
+            y_space_between_bars=y_space_between_bars,
+            y_space_above_bar=y_space_above_bar,
+            bar_h=bar_h,
+            fontsize=test_font_size,
         )
 
     return f, ax
@@ -793,12 +809,13 @@ def _boxplot(
     df: pd.DataFrame,
     x: str,
     y: str,
-    hue: str,
-    order: Optional[Sequence[str]] = None,
-    hue_order: Optional[Sequence[str]] = None,
-    figsize: Optional[tuple[float, float]] = None,
-    legend_loc: Optional[str] = None,
-    bbox_to_anchor: tuple[float, float] = None,
+    hue: Optional[str],
+    order: Optional[Sequence[str]],
+    hue_order: Optional[Sequence[str]],
+    figsize: Optional[tuple[float, float]],
+    legend_loc: Optional[str],
+    bbox_to_anchor: tuple[float, float],
+    point_size: float,
 ) -> tuple[Figure, Axes]:
     """
     A boxplot with seaborn.
@@ -821,7 +838,10 @@ def _boxplot(
             "marker": "o",
             "markerfacecolor": "black",
             "markeredgecolor": "black",
-            "markersize": "5",
+            "markersize": point_size,
+        },
+        flierprops={
+            "markersize": point_size,
         },
     )
     ax.legend(loc=legend_loc, title=None, bbox_to_anchor=bbox_to_anchor)
@@ -834,12 +854,13 @@ def _swarmplot(
     df: pd.DataFrame,
     x: str,
     y: str,
-    hue: str,
-    order: Optional[Sequence[str]] = None,
-    hue_order: Optional[Sequence[str]] = None,
-    legend_loc: Optional[str] = None,
-    bbox_to_anchor: tuple[float, float] = None,
-    dot_border: Optional[float] = None,
+    hue: Optional[str],
+    order: Optional[Sequence[str]],
+    hue_order: Optional[Sequence[str]],
+    legend_loc: Optional[str],
+    bbox_to_anchor: tuple[float, float],
+    point_border: Optional[float],
+    point_size: float,
 ):
     """
     Swarmplot with seaborn to add points to a boxplot.
@@ -856,8 +877,9 @@ def _swarmplot(
         ax=ax,
         alpha=0.8,
         palette=PALETTE,
-        dodge=True,
-        linewidth=dot_border,
+        dodge=(hue is not None),
+        linewidth=point_border,
+        size=point_size,
     )
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(
@@ -900,15 +922,19 @@ def _plot_p_values(
     order: Sequence[str],
     hue_order: Sequence[str],
     mode: TtestMode,
-    pairs_hue: Optional[Sequence[tuple[int, int]]] = None,
-    y_space_above_last_value: float = 0,
+    pairs_test: Optional[Sequence[tuple[int, int]]],
+    y_space_above_last_value: float,
+    y_space_between_bars: float,
+    y_space_above_bar: float,
+    bar_h: float,
+    fontsize: float,
 ) -> None:
     """
     Add p-values significance on a boxplot.
 
     mode can be either "related" t-test on related samples, or "independent" for independent
     samples.
-    pairs_hue defines on which pairs the t-test should be performed.
+    pairs_test defines on which pairs the t-test should be performed.
     y_space_above_last_value defines the space between the last value and the comparison bar.
     """
     mode = TtestMode(mode)
@@ -939,7 +965,31 @@ def _plot_p_values(
                 y=y_top + k * y_space_between_bars,
                 label=pval_to_stars(p),
                 bar_h=bar_h,
+                fontsize=fontsize,
             )
+    else:
+        # Case 2: Compare hue groups within each x category
+        for i, x_value in enumerate(variable_order):
+            sub = df[df[x] == x_value].sort_values("participant_id")
+
+            for k, (hi, hj) in enumerate(pairs_test):
+                vals1 = sub[sub[hue] == hue_order[hi]][y].values
+                vals2 = sub[sub[hue] == hue_order[hj]][y].values
+
+                _, p = mode.get_test()(vals1, vals2)
+                print(f"{hue_order[hi]} vs {hue_order[hj]}: ", p)
+
+                _draw_bar(
+                    ax,
+                    x1=_box_x(i, hi, len(hue_order)),
+                    x2=_box_x(i, hj, len(hue_order)),
+                    y=y_top + k * y_space_between_bars,
+                    label=pval_to_stars(p),
+                    bar_h=bar_h,
+                    fontsize=fontsize,
+                )
+
+    # Common y-axis limit adjustment
     ax.set_ylim(
         top=y_top + len(pairs_hue) * y_space_between_bars + bar_h + y_space_above_bar
     )
