@@ -52,7 +52,7 @@ def compute_inter_rater(
         rater2_file_type (str) : A dictionary describing the segmentation masks to get in the BIDS directory for rater 2.
 
     Example:\n
-        dural-perisinus-seg compute-inter-rater data/my_bids '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "dante"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "dante"}, "data_type": "anat"}' --rater1_name XXX --rater2_name YYY
+        dural-perisinus-seg compute-inter-rater data/my_bids '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymph"}, "data_type": "anat"}' --rater1_name XXX --rater2_name YYY
     """
     metrics = MetricsHandler(
         cl_dice=clDiceMetric(pred_key="image", label_key="other_rater"),
