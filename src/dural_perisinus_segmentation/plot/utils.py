@@ -26,6 +26,7 @@ PALETTE = sns.color_palette("colorblind")
 HIGHLIGHTED_EDGE = 1.3
 UNHIGHLIGHTED_EDGE = 0.3
 
+
 def get_mean_and_conf(series: pd.Series, conf_format: str = ".3f") -> str:
     """
     Compute mean and 95% confidence interval (with Student's t distribution) and
@@ -200,19 +201,19 @@ def _bland_altman_plot(
 
     if has_highlighted:
         sns.scatterplot(
-                df[~highlight_points],
-                x="avg",
-                y="diff",
-                hue=hue,
-                hue_order=hue_order,
-                ax=ax,
-                palette=PALETTE,
-                edgecolors="black",
-                s=markersize,
-                linewidth=UNHIGHLIGHTED_EDGE,
-                legend=False,
-                **kwargs,
-            )
+            df[~highlight_points],
+            x="avg",
+            y="diff",
+            hue=hue,
+            hue_order=hue_order,
+            ax=ax,
+            palette=PALETTE,
+            edgecolors="black",
+            s=markersize,
+            linewidth=UNHIGHLIGHTED_EDGE,
+            legend=False,
+            **kwargs,
+        )
 
         # Modify the legend to add highlighting
         fig_legend = ax.legend()
@@ -624,7 +625,7 @@ def boxplot(
     df: pd.DataFrame,
     x: str,
     y: str,
-    hue: str,
+    hue: Optional[str] = None,
     order: Optional[Sequence[str]] = None,
     hue_order: Optional[Sequence[str]] = None,
     plot_points: bool = True,
@@ -654,7 +655,7 @@ def boxplot(
         Variable in ``df`` for the x axis.
     y : str
         Variable in ``df`` for the y axis.
-    hue : str
+    hue : Optional[str], default=None
         Variable in ``df`` for plotting distributions of different categories.
     order : Optional[Sequence[str]], default=None
         Order for the x axis.
@@ -674,9 +675,15 @@ def boxplot(
         Whether to perform t-tests and plot the p-values significance.
     test_mode : str | TtestMode, default="independent"
         Type of test to perform. Either "related" or "independent".
-    y_space_above_last_value : float, default=0
+    y_space_above_last_value : float, default=0.01
         The space between the last y value and the comparison bar.
-    pairs_hue : Optional[Sequence[tuple[int, int]]], default=None
+    y_space_between_bars : float, default=0.03
+        The space between comparison bars.
+    y_space_above_bar : float, default=0.01
+        The space above the highest comparison bar.
+    bar_h : float, default=0.01
+        The height of the comparison bar.
+    pairs_test : Optional[Sequence[tuple[int, int]]], default=None
         Pairs on which the t-tests must be performed.
     test_font_size : float, default=11.0
         The font of the asterisks for the p-values.
@@ -740,7 +747,7 @@ def boxplot(
             # Rebuild the legend from the artists currently on the Axes
             handles, labels = ax.get_legend_handles_labels()
 
-            n_hues = len(hue_order)
+            n_hues = len(hue_order) if hue else 0
 
             # Keep only the boxplot handles
             hue_handles = handles[:n_hues]
@@ -789,12 +796,13 @@ def boxplot(
         _plot_p_values(
             ax,
             df,
+            x,
             y,
             hue=hue,
             order=order,
             hue_order=hue_order,
             mode=test_mode,
-            pairs_hue=pairs_hue,
+            pairs_test=pairs_test,
             y_space_above_last_value=y_space_above_last_value,
             y_space_between_bars=y_space_between_bars,
             y_space_above_bar=y_space_above_bar,
@@ -881,20 +889,21 @@ def _swarmplot(
         linewidth=point_border,
         size=point_size,
     )
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(
-        handles=[
-            (handles[i], handles[j])
-            for i, j in zip(
-                range(0, len(hue_order)), range(len(hue_order), 2 * len(hue_order))
-            )
-        ],
-        labels=labels,
-        loc=legend_loc,
-        handlelength=4,
-        bbox_to_anchor=bbox_to_anchor,
-        handler_map={tuple: HandlerTuple(ndivide=None)},
-    )
+    if hue is not None:
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(
+            handles=[
+                (handles[i], handles[j])
+                for i, j in zip(
+                    range(0, len(hue_order)), range(len(hue_order), 2 * len(hue_order))
+                )
+            ],
+            labels=labels,
+            loc=legend_loc,
+            handlelength=4,
+            bbox_to_anchor=bbox_to_anchor,
+            handler_map={tuple: HandlerTuple(ndivide=None)},
+        )
 
 
 class TtestMode(str, Enum):
@@ -917,10 +926,11 @@ class TtestMode(str, Enum):
 def _plot_p_values(
     ax: Axes,
     df: pd.DataFrame,
+    x: str,
     y: str,
-    hue: str,
-    order: Sequence[str],
-    hue_order: Sequence[str],
+    hue: Optional[str],
+    order: Optional[Sequence[str]],
+    hue_order: Optional[Sequence[str]],
     mode: TtestMode,
     pairs_test: Optional[Sequence[tuple[int, int]]],
     y_space_above_last_value: float,
@@ -939,29 +949,41 @@ def _plot_p_values(
     """
     mode = TtestMode(mode)
 
-    if not pairs_hue:
-        pairs_hue = list(combinations(range(len(hue_order)), 2))
-
-    bar_h = 0.01  # size of the bar
-    y_space_between_bars = 0.03  # steps between bars
-    y_space_above_bar = 0.01
-
     y_top = df[y].max() + y_space_above_last_value
-    print("P-values")
-    for i, metric in enumerate(order):
-        sub = df[df["metric"] == metric].sort_values("participant_id")
 
-        for k, (hi, hj) in enumerate(pairs_hue):
-            vals1 = sub[sub[hue] == hue_order[hi]][y].values
-            vals2 = sub[sub[hue] == hue_order[hj]][y].values
+    variable_order = order if order else sorted(df[x].unique())
+    n_vars = len(variable_order)
+
+    if not pairs_test:
+        pairs_test = list(
+            combinations(
+                range(
+                    n_vars
+                    if not hue
+                    else (hue_order if hue_order else sorted(df[hue].unique()))
+                ),
+                2,
+            )
+        )
+
+    print("P-values")
+    if not hue:
+        # Case 1: Compare x groups directly
+        for k, (i, j) in enumerate(pairs_test):
+            vals1 = (
+                df[df[x] == variable_order[i]].sort_values("participant_id")[y].values
+            )
+            vals2 = (
+                df[df[x] == variable_order[j]].sort_values("participant_id")[y].values
+            )
 
             _, p = mode.get_test()(vals1, vals2)
-            print(f"{hue_order[hi]} vs {hue_order[hj]}: ", p)
+            print(f"{variable_order[i]} vs {variable_order[j]}: ", p)
 
             _draw_bar(
                 ax,
-                x1=_box_x(i, hi, len(hue_order)),
-                x2=_box_x(i, hj, len(hue_order)),
+                x1=i,
+                x2=j,
                 y=y_top + k * y_space_between_bars,
                 label=pval_to_stars(p),
                 bar_h=bar_h,
@@ -991,11 +1013,11 @@ def _plot_p_values(
 
     # Common y-axis limit adjustment
     ax.set_ylim(
-        top=y_top + len(pairs_hue) * y_space_between_bars + bar_h + y_space_above_bar
+        top=y_top + len(pairs_test) * y_space_between_bars + bar_h + y_space_above_bar
     )
 
 
-def _box_x(metric_idx: int, hue_idx: int, n_hues: int) -> float:
+def _box_x(x_idx: int, hue_idx: int, n_hues: int) -> float:
     """
     Compute the x-axis position of a box given its metric and hue indices.
     """
@@ -1003,7 +1025,7 @@ def _box_x(metric_idx: int, hue_idx: int, n_hues: int) -> float:
     box_width = total_width / n_hues
     offset = -total_width / 2 + box_width / 2 + hue_idx * box_width
 
-    return metric_idx + offset
+    return x_idx + offset
 
 
 def _draw_bar(
