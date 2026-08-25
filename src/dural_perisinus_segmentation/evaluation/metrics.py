@@ -1,20 +1,18 @@
+from typing import Optional, Sequence
+
 import numpy as np
 import torch
 from clinicadl.metrics import Metric
 from skimage.morphology import skeletonize
 
 
-def _cl_dice(
-    y_pred: np.ndarray, y_true: np.ndarray
-) -> tuple[float, float]:
+def _cl_dice(y_pred: np.ndarray, y_true: np.ndarray) -> tuple[float, float]:
     tprec = _positive_rate(y_pred, skeletonize(y_true))
     tsens = _positive_rate(y_true, skeletonize(y_pred))
     return _f1_score(tprec, tsens)
 
 
-def _dice(
-    y_pred: np.ndarray, y_true: np.ndarray
-) -> tuple[float, float]:
+def _dice(y_pred: np.ndarray, y_true: np.ndarray) -> tuple[float, float]:
     tprec = _positive_rate(y_pred, y_true)
     tsens = _positive_rate(y_true, y_pred)
     return _f1_score(tprec, tsens)
@@ -34,20 +32,34 @@ class DiceMetric(Metric):
 
     _metric_computation = staticmethod(_dice)
 
-    def __init__(self, pred_key: str, label_key: str):
+    def __init__(
+        self,
+        pred_key: str,
+        label_key: str,
+        label: int = 1,
+    ):
         self.label_key = label_key
         self.pred_key = pred_key
+        self.label = label
         super().__init__()
 
     def _accumulate(self, batch):
         return torch.tensor(
             [
                 self._metric_computation(
-                    sample[self.pred_key].tensor.squeeze(0).numpy(),
-                    sample[self.label_key].tensor.squeeze(0).numpy(),
+                    np.where(
+                        sample[self.pred_key].tensor == self.label,
+                        1,
+                        0,
+                    ).squeeze(0),
+                    np.where(
+                        sample[self.label_key].tensor == self.label,
+                        1,
+                        0,
+                    ).squeeze(0),
                 )
                 for sample in batch
-            ]
+            ],
         )
 
     def _aggregate(self, data: torch.Tensor):
@@ -62,20 +74,30 @@ class clDiceMetric(DiceMetric):
 
     _metric_computation = staticmethod(_cl_dice)
 
+
 class VolumeMetric(Metric):
     """
-    Compute the volume of fluid.
+    Compute the volume of a segmentation.
     """
 
-    def __init__(self, image_key: str):
+    def __init__(
+        self,
+        image_key: str,
+        label: int = 1,
+    ):
         self.image_key = image_key
+        self.label = label
         super().__init__()
 
     def _accumulate(self, batch):
         return torch.tensor(
             [
                 _get_volume(
-                    sample[self.image_key].tensor.squeeze(0).numpy(),
+                    np.where(
+                        sample[self.image_key].tensor == self.label,
+                        1,
+                        0,
+                    ).squeeze(0),
                     tuple(sample[self.image_key].spacing),
                 )
                 for sample in batch
@@ -84,6 +106,7 @@ class VolumeMetric(Metric):
 
     def _aggregate(self, data: torch.Tensor):
         return data.mean().item()
-    
+
+
 def _get_volume(mask: np.ndarray, spacing: tuple[float, float, float]) -> float:
     return mask.sum() * np.prod(spacing)
