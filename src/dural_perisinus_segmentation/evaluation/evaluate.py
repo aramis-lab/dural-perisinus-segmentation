@@ -58,112 +58,82 @@ def evaluate(
         mask_file_type (str) : A dictionary describing the segmentation masks to get in 'bids_input'. It must be parameters accepted by clinicadl.io.BidsFileType. Multiple values can be passed (if multiple raters).
 
     Example:\n
-        dural-perisinus-seg evaluate data/bids_out data/bids_in '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymph"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymphROI"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymphROI"}, "data_type": "anat"}'
+        dural-perisinus-seg evaluate data/bids_out data/bids_in '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymph"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymphRoi"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymphRoi"}, "data_type": "anat"}'
     """
     metrics = MetricsHandler(
         cl_dice=clDiceMetric(pred_key="image", label_key="gt"),
         dice=DiceMetric(pred_key="image", label_key="gt"),
     )
-    volumes_per_region = MetricsHandler()
+
+    for i, mask in enumerate(mask_file_type, start=1):
+        _compute_metrics_and_volumes(
+            bids_output,
+            bids_input,
+            gt_mask=mask,
+            metrics=metrics,
+            id=i,
+        )
 
     if mask_regions_file_type:
         assert regions_tsv is not None
         regions_indices = pd.read_csv(regions_tsv, sep="\t")
 
+        metrics = MetricsHandler()
+        volumes = MetricsHandler()
+
         for _, row in regions_indices.iterrows():
             metrics.add_metrics(
                 **{
                     f"cl_dice_{row['roi']}": clDiceMetric(
-                        pred_key="pred_regions",
-                        label_key="gt_regions",
+                        pred_key="regions",
+                        label_key="gt",
                         label=int(row["id"]),
                     ),
                     f"dice_{row['roi']}": DiceMetric(
-                        pred_key="pred_regions",
-                        label_key="gt_regions",
+                        pred_key="regions",
+                        label_key="gt",
                         label=int(row["id"]),
                     ),
                 }
             )
 
-            volumes_per_region.add_metrics(
+            volumes.add_metrics(
                 **{
-                    f"volume_{row['roi']}": VolumeMetric(
-                        image_key="pred_regions",
+                    row["roi"]: VolumeMetric(
+                        image_key="regions",
                         label=int(row["id"]),
                     ),
                 }
             )
-    else:
-        mask_regions_file_type = [None] * len(mask_file_type)
 
-    metrics.init_metrics()
-    volumes_per_region.init_metrics()
-    for i, (mask, mask_region) in enumerate(
-        zip(mask_file_type, mask_regions_file_type), start=1
-    ):
-        metrics.reset(reset_df=True)
-        volumes_per_region.reset(reset_df=True)
-
-        masks = {"gt": (bids_input, mask)}
-        if mask_region is not None:
-            masks["gt_regions"] = (bids_input, mask_region)
-
-        bids = BidsDataset(
-            bids_output,
-            file_type=BidsFileType(data_type="anat", suffix="dseg"),
-            masks=masks,
-            transforms=TransformsHandler(
-                image_transforms=[
-                    ColorMask(
-                        mask_key="image",
-                        regions_key="gt_regions",
-                        colored_mask_name="pred_regions",
-                    )
-                ]
-            )
-            if mask_region is not None
-            else TransformsHandler(),
-        )
-        bids.sanity_check(spatial_checks=["spacing", "shape"])
-        loader = DataLoader(bids, batch_size=2)
-
-        Parallel(n_jobs=-1, require="sharedmem")(
-            delayed(metrics)(preds)
-            for preds in tqdm(
-                loader,
-                total=len(loader),
-                desc=f"Computing metrics compared to rater {i}",
-                unit="batches",
-            )
-        )
-        if volumes_per_region.metrics:
-            Parallel(n_jobs=-1, require="sharedmem")(
-                delayed(volumes_per_region)(preds)
-                for preds in tqdm(
-                    loader,
-                    total=len(loader),
-                    desc=f"Computing volumes per regions (with reference to rater {i})",
-                    unit="batches",
-                )
-            )
-
-        metrics.aggregate()
-        volumes_per_region.aggregate()
-
-        metrics.save(
-            path=_infer_tsv_file_path(bids_output, mask, "evaluation"),
-            details_path=_infer_tsv_file_path(bids_output, mask, "evaluationDetails"),
-        )
-        if volumes_per_region.metrics:
-            volumes_per_region.save(
-                path=_infer_tsv_file_path(bids_output, mask, "volumesRoi"),
-                details_path=_infer_tsv_file_path(
-                    bids_output, mask, "volumesRoiDetails"
+        for i, mask_region in enumerate(mask_regions_file_type, start=1):
+            _compute_metrics_and_volumes(
+                bids_output,
+                bids_input,
+                gt_mask=mask_region,
+                metrics=metrics,
+                id=i,
+                volumes=volumes,
+                transforms=TransformsHandler(
+                    image_transforms=[
+                        ColorMask(
+                            mask_key="image",
+                            regions_key="gt",
+                            colored_mask_name="regions",
+                        )
+                    ]
                 ),
+                suffix="Roi",
             )
 
-    volumes = MetricsHandler(pred_volume=VolumeMetric(image_key="image"))
+    bids = BidsDataset(
+        bids_output,
+        file_type=BidsFileType(data_type="anat", suffix="dseg"),
+    )
+    bids.sanity_check(spatial_checks=["spacing", "shape"])
+    loader = DataLoader(bids, batch_size=2)
+
+    volumes = MetricsHandler(total_volume=VolumeMetric(image_key="image"))
     volumes.init_metrics()
     Parallel(n_jobs=-1, require="sharedmem")(
         delayed(volumes)(preds)
@@ -176,6 +146,74 @@ def evaluate(
         path=bids_output / "volumes.tsv",
         details_path=bids_output / "volumesDetails.tsv",
     )
+
+
+def _compute_metrics_and_volumes(
+    bids_output: Path,
+    bids_input: Path,
+    gt_mask: BidsFileType,
+    metrics: MetricsHandler,
+    id: int,
+    suffix: str = "",
+    gt_mask_key: str = "gt",
+    transforms: TransformsHandler = TransformsHandler(),
+    volumes: Optional[MetricsHandler] = None,
+):
+    metrics.init_metrics()
+    metrics.reset(reset_df=True)
+    if volumes is not None:
+        volumes.init_metrics()
+        volumes.reset(reset_df=True)
+
+    bids = BidsDataset(
+        bids_output,
+        file_type=BidsFileType(data_type="anat", suffix="dseg"),
+        masks={gt_mask_key: (Bids(bids_input), gt_mask)},
+        transforms=transforms,
+    )
+    bids.sanity_check(spatial_checks=["spacing", "shape"])
+    loader = DataLoader(bids, batch_size=2)
+
+    desc = f"({suffix})" if suffix else ""
+
+    Parallel(n_jobs=-1, require="sharedmem")(
+        delayed(metrics)(preds)
+        for preds in tqdm(
+            loader,
+            total=len(loader),
+            desc=f"Computing metrics compared to rater {id} {desc}",
+            unit="batches",
+        )
+    )
+    if volumes is not None:
+        Parallel(n_jobs=-1, require="sharedmem")(
+            delayed(volumes)(preds)
+            for preds in tqdm(
+                loader,
+                total=len(loader),
+                desc=f"Computing volumes with rater {id} as reference {desc}",
+                unit="batches",
+            )
+        )
+
+    metrics.aggregate()
+    metrics.save(
+        path=_infer_tsv_file_path(bids_output, gt_mask, f"evaluation{suffix or ''}"),
+        details_path=_infer_tsv_file_path(
+            bids_output, gt_mask, f"evaluation{suffix or ''}Details"
+        ),
+    )
+
+    if volumes is not None:
+        volumes.aggregate()
+        volumes.save(
+            path=_infer_tsv_file_path(
+                bids_output, gt_mask, f"volumes{suffix or ''}.tsv"
+            ),
+            details_path=_infer_tsv_file_path(
+                bids_output, gt_mask, f"volumes{suffix or ''}Details.tsv"
+            ),
+        )
 
 
 def _infer_tsv_file_path(

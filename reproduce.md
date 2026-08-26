@@ -66,12 +66,12 @@ pixi run dural-perisinus-seg nnunet-outputs-to-bids $nnUNet_results/Dataset000_d
 
 12. Compute the evaluation metrics with `dural-perisinus-seg evaluate`. E.g.:
 ```bash
-pixi run dural-perisinus-seg evaluate $nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred data/bids '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymphROI"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymphROI"}, "data_type": "anat"}' --regions_tsv data/bids/desc-lymphROI_labels.tsv
+pixi run dural-perisinus-seg evaluate $nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred data/bids '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymphRoi"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymphRoi"}, "data_type": "anat"}' --regions_tsv data/bids/desc-lymphRoi_labels.tsv
 ```
 
 13. Compute the inter-rater agreement with `dural-perisinus-seg compute-inter-rater`. E.g.:
 ```bash
-pixi run dural-perisinus-seg compute-inter-rater data/bids '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' --rater1_name SL --rater2_name DD
+pixi run dural-perisinus-seg compute-inter-rater data/bids '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' --rater1_name SL --rater2_name DD --rater1_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymphRoi"}, "data_type": "anat"}' --rater2_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymphRoi"}, "data_type": "anat"}' --regions_tsv data/bids/desc-lymphRoi_labels.tsv
 ```
 
 14. Plot the results using `plot.segmentation.py` (Figure 9), `plot.volumes_scatter.py` (Figure 10a) and `plot.volumes_blandaltman.py` (Figure 10b).

@@ -11,8 +11,8 @@ from dural_perisinus_segmentation.plot.utils import (
     get_subgroup_pvalues,
 )
 
-EVALUATION_RATER_1 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-SL_label-dante_evaluationDetails.tsv"
-EVALUATION_RATER_2 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-DD_label-dante_evaluationDetails.tsv"
+EVALUATION_RATER_1 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-SL_label-lymph_evaluationDetails.tsv"
+EVALUATION_RATER_2 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-DD_label-lymph_evaluationDetails.tsv"
 INTER_RATER_COMPARISON = "../../../data/bids/rater1-SL_rater2-DD_interraterDetails.tsv"
 METADATA = "../../../data/bids/metadata.tsv"
 

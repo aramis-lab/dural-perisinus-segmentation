@@ -2,10 +2,12 @@
 
 # %%
 import pandas as pd
+
 from dural_perisinus_segmentation.plot.utils import bland_altman_plots
 
 PRED_VOLUMES = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/volumesDetails.tsv"
-RATERS_VOLUMES = "../../../data/bids/rater1-SL_rater2-DD_volumesDetails.tsv"
+RATER1_VOLUMES = "../../../data/bids/rater-SL_volumesDetails.tsv"
+RATER2_VOLUMES = "../../../data/bids/rater-DD_volumesDetails.tsv"
 METADATA = "../../../data/bids/metadata.tsv"
 
 RATER_1_KEY = "SLn"
@@ -20,15 +22,25 @@ pred_volumes = (
     )
     .set_index("participant_id")
     .drop(columns=["session_id"])
-)
-rater_volumes = (
-    pd.read_csv(
-        RATERS_VOLUMES,
-        sep="\t",
-    )
-    .set_index("participant_id")
-    .drop(columns=["session_id"])
-)
+).rename(columns={"total_volume": MODEL_KEY})
+rater_volumes = pd.concat(
+    [
+        pd.read_csv(
+            RATER1_VOLUMES,
+            sep="\t",
+        )
+        .set_index("participant_id")
+        .drop(columns=["session_id"]),
+        pd.read_csv(
+            RATER2_VOLUMES,
+            sep="\t",
+        )
+        .set_index("participant_id")
+        .drop(columns=["session_id"]),
+    ],
+    axis=1,
+    keys=[RATER_1_KEY, RATER_2_KEY],
+).droplevel(axis=1, level=1)
 metadata = (
     pd.read_csv(
         METADATA,
@@ -51,24 +63,20 @@ df = pd.concat(
     axis=1,
 )
 
-df = df.rename(
-    columns={
-        RATERS_VOLUMES.split("rater1-")[1].split("_")[0]: RATER_1_KEY,
-        RATERS_VOLUMES.split("rater2-")[1].split("_")[0]: RATER_2_KEY,
-        "pred_volume": MODEL_KEY,
-    }
-)
-
 # %%
 f, ax = bland_altman_plots(
     df,
-    plots=[(RATER_1_KEY, RATER_2_KEY), (RATER_1_KEY, MODEL_KEY), (RATER_2_KEY, MODEL_KEY)],
+    plots=[
+        (RATER_1_KEY, RATER_2_KEY),
+        (RATER_1_KEY, MODEL_KEY),
+        (RATER_2_KEY, MODEL_KEY),
+    ],
     hue="medical_condition",
     quantity="volume",
     unit="$cm^3$",
     highlight_points=~df.isna().any(axis=1),
     points_legend=["test scan", "training scan"],
-    figsize=(15,4),
+    figsize=(15, 4),
     titles=[("DD vs SLn"), ("automatic model vs SLn"), ("automatic model vs DD")],
     grid_spacing=1,
 )
