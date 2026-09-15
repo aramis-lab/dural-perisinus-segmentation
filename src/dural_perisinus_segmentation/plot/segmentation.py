@@ -67,7 +67,7 @@ Y_LABEL = "score ↑ ∈ [0, 1]"
 HUE_ORDER = [RATER_1_KEY, RATER_2_KEY, "inter-rater"]
 
 df["metric"] = df["metric"].apply(
-    lambda x: x.replace("cl_dice", "clDice").replace("dice", "DSC")
+    lambda x: x.replace("cldice", "clDice").replace("dice", "DSC")
 )
 df = df.rename(columns={"score": Y_LABEL})
 pairs_hue = [

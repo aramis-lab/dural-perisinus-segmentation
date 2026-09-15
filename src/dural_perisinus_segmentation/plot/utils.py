@@ -50,6 +50,7 @@ def bland_altman_plots(
     titles: Optional[Sequence[str]] = None,
     figsize: Optional[tuple[float, float]] = None,
     grid_spacing: Optional[float] = None,
+    sharey: bool = True,
     **kwargs,
 ) -> tuple[Figure, Axes]:
     """
@@ -83,13 +84,15 @@ def bland_altman_plots(
     figsize : Optional[tuple[float, float]], default=None
         The size of the figure.
     grid_spacing : Optional[float], default=None
-        THe spacing for the x-axis and y-axis grid lines.
+        The spacing for the x-axis and y-axis grid lines.
+    sharey : bool, default=True
+        If all the plots must share the same y axis.
 
     Returns
     -------
     tuple[Figure, Axes]
     """
-    f, ax = plt.subplots(1, len(plots), figsize=figsize, sharey=True)
+    f, ax = plt.subplots(1, len(plots), figsize=figsize, sharey=sharey)
 
     if not stats_x_pos:
         stats_x_pos = [None] * len(plots)
@@ -641,9 +644,10 @@ def boxplot(
     pairs_test: Optional[Sequence[tuple[int, int]]] = None,
     test_font_size: float = 11,
     figsize: Optional[tuple[float, float]] = None,
+    ax: Optional[Axes] = None,
     legend_loc: Optional[str] = None,
     bbox_to_anchor: tuple[float, float] = None,
-) -> tuple[Figure, Axes]:
+) -> Axes:
     """
     Boxplot with seaborn.
 
@@ -696,9 +700,9 @@ def boxplot(
 
     Returns
     -------
-    tuple[Figure, Axes]
+    Axes
     """
-    f, ax = _boxplot(
+    ax = _boxplot(
         df,
         x,
         y,
@@ -709,6 +713,7 @@ def boxplot(
         legend_loc=legend_loc,
         bbox_to_anchor=bbox_to_anchor,
         point_size=point_size,
+        ax=ax,
     )
     if plot_points:
         if highlight_points is None:
@@ -810,7 +815,7 @@ def boxplot(
             fontsize=test_font_size,
         )
 
-    return f, ax
+    return ax
 
 
 def _boxplot(
@@ -821,16 +826,18 @@ def _boxplot(
     order: Optional[Sequence[str]],
     hue_order: Optional[Sequence[str]],
     figsize: Optional[tuple[float, float]],
+    ax: Optional[Axes],
     legend_loc: Optional[str],
     bbox_to_anchor: tuple[float, float],
     point_size: float,
-) -> tuple[Figure, Axes]:
+) -> Axes:
     """
     A boxplot with seaborn.
 
     'order' is the order of the values on the x-axis.
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    if not ax:
+        _, ax = plt.subplots(figsize=figsize)
     sns.boxplot(
         data=df,
         x=x,
@@ -854,7 +861,7 @@ def _boxplot(
     )
     ax.legend(loc=legend_loc, title=None, bbox_to_anchor=bbox_to_anchor)
 
-    return fig, ax
+    return ax
 
 
 def _swarmplot(
@@ -891,11 +898,14 @@ def _swarmplot(
     )
     if hue is not None:
         handles, labels = ax.get_legend_handles_labels()
+
+        n_hues = len(hue_order) if hue else 0
+
         ax.legend(
             handles=[
                 (handles[i], handles[j])
                 for i, j in zip(
-                    range(0, len(hue_order)), range(len(hue_order), 2 * len(hue_order))
+                    range(0, n_hues), range(n_hues, 2 * n_hues)
                 )
             ],
             labels=labels,
@@ -991,6 +1001,8 @@ def _plot_p_values(
             )
     else:
         # Case 2: Compare hue groups within each x category
+        n_hues = len(hue_order) if hue else 0
+
         for i, x_value in enumerate(variable_order):
             sub = df[df[x] == x_value].sort_values("participant_id")
 
@@ -1003,8 +1015,8 @@ def _plot_p_values(
 
                 _draw_bar(
                     ax,
-                    x1=_box_x(i, hi, len(hue_order)),
-                    x2=_box_x(i, hj, len(hue_order)),
+                    x1=_box_x(i, hi, n_hues),
+                    x2=_box_x(i, hj, n_hues),
                     y=y_top + k * y_space_between_bars,
                     label=pval_to_stars(p),
                     bar_h=bar_h,

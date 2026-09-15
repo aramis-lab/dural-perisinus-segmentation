@@ -82,7 +82,7 @@ def compute_inter_rater(
         dural-perisinus-seg compute-inter-rater data/my_bids '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymph"}, "data_type": "anat"}' --rater1_name XXX --rater2_name YYY
     """
     metrics = MetricsHandler(
-        cl_dice=clDiceMetric(pred_key="image", label_key="other_rater"),
+        cldice=clDiceMetric(pred_key="image", label_key="other_rater"),
         dice=DiceMetric(pred_key="image", label_key="other_rater"),
     )
     volumes_rater1 = MetricsHandler(
@@ -116,7 +116,7 @@ def compute_inter_rater(
         for _, row in regions_indices.iterrows():
             metrics.add_metrics(
                 **{
-                    f"cl_dice_{row['roi']}": clDiceMetric(
+                    f"cldice_{row['roi']}": clDiceMetric(
                         pred_key="image",
                         label_key="other_rater",
                         label=int(row["id"]),
@@ -129,14 +129,15 @@ def compute_inter_rater(
                 }
             )
 
-            for vol in [volumes_rater1, volumes_rater2]:
+            for vol, mask_name in zip(
+                [volumes_rater1, volumes_rater2], ["image", "other_rater"]
+            ):
                 vol.add_metrics(
                     **{
-                        row['roi']: VolumeMetric(
+                        row["roi"]: VolumeMetric(
                             image_key=mask_name,
                             label=int(row["id"]),
                         )
-                        for mask_name in ["image", "other_rater"]
                     }
                 )
 
@@ -177,7 +178,7 @@ def _compute_metrics_and_volumes(
     volumes_rater1.init_metrics()
     volumes_rater2.init_metrics()
 
-    desc = f'({suffix})' if suffix else ''
+    desc = f"({suffix})" if suffix else ""
 
     Parallel(n_jobs=-1, require="sharedmem")(
         delayed(metrics)(masks)

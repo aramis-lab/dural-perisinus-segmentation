@@ -22,6 +22,8 @@ def _positive_rate(v: np.ndarray, s: np.ndarray) -> float:
     return np.sum(v * s) / np.sum(s)
 
 def _f1_score(tprec: float, tsens: float) -> float:
+    if (tprec == 0) or (tsens == 0):
+        return 0
     return (2 * tprec * tsens / (tprec + tsens)).item()
 
 
