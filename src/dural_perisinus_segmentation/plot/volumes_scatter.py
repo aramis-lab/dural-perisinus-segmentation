@@ -73,7 +73,7 @@ df = pd.concat(
 )
 
 # %%
-f, ax = scatterplots(
+scatterplots(
     df,
     plots=[
         (RATER_1_KEY, RATER_2_KEY),

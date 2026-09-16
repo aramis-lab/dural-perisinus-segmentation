@@ -64,7 +64,7 @@ df = pd.concat(
 )
 
 # %%
-f, ax = bland_altman_plots(
+bland_altman_plots(
     df,
     plots=[
         (RATER_1_KEY, RATER_2_KEY),
