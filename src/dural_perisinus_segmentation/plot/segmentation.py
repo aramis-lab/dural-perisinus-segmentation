@@ -1,4 +1,4 @@
-# To plot the segmentation metrics (DSC and clDice). Figure 9.
+# To plot the segmentation metrics (DSC and clDice). Figure 5.
 
 # %%
 import matplotlib.pyplot as plt
@@ -83,7 +83,8 @@ test_participants = (
     .dropna()
     .index
 )
-f, ax = boxplot(
+
+boxplot(
     df=df,
     x="metric",
     y=Y_LABEL,
@@ -147,7 +148,7 @@ print(
 print("Subgroup analysis")
 print("*" * 17)
 for metric in ["DSC", "clDice"]:
-    print("\n", metric)
+    print("\n" + metric)
     print("=" * 7)
     for rater in [RATER_1_KEY, RATER_2_KEY, "inter-rater"]:
         print(rater)
