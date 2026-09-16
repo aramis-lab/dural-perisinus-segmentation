@@ -752,7 +752,7 @@ def boxplot(
             # Rebuild the legend from the artists currently on the Axes
             handles, labels = ax.get_legend_handles_labels()
 
-            n_hues = len(hue_order) if hue else 0
+            n_hues = len(hue_order) if hue_order else 0
 
             # Keep only the boxplot handles
             hue_handles = handles[:n_hues]
@@ -899,14 +899,12 @@ def _swarmplot(
     if hue is not None:
         handles, labels = ax.get_legend_handles_labels()
 
-        n_hues = len(hue_order) if hue else 0
+        n_hues = len(hue_order) if hue_order else 0
 
         ax.legend(
             handles=[
                 (handles[i], handles[j])
-                for i, j in zip(
-                    range(0, n_hues), range(n_hues, 2 * n_hues)
-                )
+                for i, j in zip(range(0, n_hues), range(n_hues, 2 * n_hues))
             ],
             labels=labels,
             loc=legend_loc,
@@ -1001,7 +999,7 @@ def _plot_p_values(
             )
     else:
         # Case 2: Compare hue groups within each x category
-        n_hues = len(hue_order) if hue else 0
+        n_hues = len(hue_order) if hue_order else 0
 
         for i, x_value in enumerate(variable_order):
             sub = df[df[x] == x_value].sort_values("participant_id")
@@ -1057,3 +1055,66 @@ def _draw_bar(
     ax.text(
         (x1 + x2) / 2, y + bar_h, label, ha="center", va="bottom", fontsize=fontsize
     )
+
+
+def plot_table(
+    df: pd.DataFrame,
+    title: Optional[str] = None,
+    ax: Optional[Axes] = None,
+    font_size: float = 10,
+    scale: float = 1,
+) -> None:
+    """
+    To print a DataFrame as a table.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame with the data. The index and the columns of the DataFrame
+        will be the index and the columns of the table, respectively.
+    title : Optional[str], default=None
+        A title to give to the table.
+    ax : Optional[Axes], default=None
+        A potential axe on which to plot the table.
+    font_size : float, default=10
+        The font size in the table.
+    scale : float, default=1
+        To scale column widths and row heights.
+
+    Returns
+    -------
+    Axes
+    """
+    if not ax:
+        ax = plt.subplot()
+
+    ax.axis("off")
+
+    table = ax.table(
+        cellText=df.reset_index(names=[""]).values,
+        colLabels=df.reset_index(names=[""]).columns,
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(font_size)
+    table.scale(scale, scale)
+
+    cells_to_bold = [(0, i) for i in range(df.shape[1] + 1)] + [
+        (i, 0) for i in range(1, df.shape[0] + 1)
+    ]
+    for row, col in cells_to_bold:
+        cell = table[row, col]
+        cell.get_text().set_fontweight("bold")
+
+    ax.set_title(
+        title,
+        loc="left",
+        fontsize=font_size,
+        fontweight="bold",
+        pad=1,
+    )
+
+    return ax
