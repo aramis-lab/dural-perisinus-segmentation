@@ -74,4 +74,4 @@ pixi run dural-perisinus-seg evaluate $nnUNet_results/Dataset000_dante/nnUNetTra
 pixi run dural-perisinus-seg compute-inter-rater data/bids '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' --rater1_name SL --rater2_name DD --rater1_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymphRoi"}, "data_type": "anat"}' --rater2_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymphRoi"}, "data_type": "anat"}' --regions_tsv data/bids/desc-lymphRoi_labels.tsv
 ```
 
-14. Plot the results using `plot.segmentation.py` (Figure 9), `plot.volumes_scatter.py` (Figure 10a) and `plot.volumes_blandaltman.py` (Figure 10b).
+14. Plot the results using `plot/segmentation.py` (Figure 5), `plot/volumes_scatter.py` (6a), `plot/volumes_blandaltman.py` (6b) and `plot/per_region.py` (S4).
