@@ -2,7 +2,7 @@
 
 
 This repository is associated with the paper:
-**CITATION**
+Doukhi, D., de Varax, T., Okar, S.V., Leser, F.S., Reich, D.S., Eichmann, A., McAlpine, L., Lehericy, S., Thomas, J-L., Colliot, O., & Lenck, S. (2026). Deep Learning-Based MRI Segmentation of Dural Perisinus for Assessment of Human Meningeal Lymphatics. (under review)
 
 The automatic segmentation model was trained using the [nnUNet](https://github.com/MIC-DKFZ/nnUNet) framework.
 
