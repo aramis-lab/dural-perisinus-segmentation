@@ -1,4 +1,4 @@
-# A Bland-Altman plot of the volumes. Figure 10b.
+# A Bland-Altman plot of the volumes. Figure 6b.
 
 # %%
 import pandas as pd

@@ -1,4 +1,4 @@
-# A scatter plot of the volumes. Figure 10a.
+# A scatter plot of the volumes. Figure 6a.
 
 # %%
 from itertools import combinations
