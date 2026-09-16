@@ -41,7 +41,7 @@ source bash/export_nnunet.sh data
 
 7. Convert the BIDS to a format accepted by nnUNet using `dural-perisinus-seg bids-to-nnunet`. E.g.:
 ```bash
-pixi run dural-perisinus-seg bids-to-nnunet data/bids 0 '{"suffix": "dante", "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "dante"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "dante"}, "data_type": "anat"}' --dataset_name dante --nnunet_datasets_dir $nnUNet_raw
+pixi run dural-perisinus-seg bids-to-nnunet data/bids 0 '{"suffix": "dante", "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' --dataset_name dante --nnunet_datasets_dir $nnUNet_raw
 ```
 
 8. Run the nnUNet command `nnUNetv2_plan_and_preprocess` to prepare training:
@@ -66,12 +66,12 @@ pixi run dural-perisinus-seg nnunet-outputs-to-bids $nnUNet_results/Dataset000_d
 
 12. Compute the evaluation metrics with `dural-perisinus-seg evaluate`. E.g.:
 ```bash
-pixi run dural-perisinus-seg evaluate $nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred data/bids '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "dante"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "dante"}, "data_type": "anat"}'
+pixi run dural-perisinus-seg evaluate $nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred data/bids '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymphRoi"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymphRoi"}, "data_type": "anat"}' --regions_tsv data/bids/desc-lymphRoi_labels.tsv
 ```
 
 13. Compute the inter-rater agreement with `dural-perisinus-seg compute-inter-rater`. E.g.:
 ```bash
-pixi run dural-perisinus-seg compute-inter-rater data/bids '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "dante"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "dante"}, "data_type": "anat"}' --rater1_name SL --rater2_name DD
+pixi run dural-perisinus-seg compute-inter-rater data/bids '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymph"}, "data_type": "anat"}' --rater1_name SL --rater2_name DD --rater1_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "DD", "label": "lymphRoi"}, "data_type": "anat"}' --rater2_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "SL", "label": "lymphRoi"}, "data_type": "anat"}' --regions_tsv data/bids/desc-lymphRoi_labels.tsv
 ```
 
-14. Plot the results using `plot.segmentation.py` (Figure 9), `plot.volumes_scatter.py` (Figure 10a) and `plot.volumes_blandaltman.py` (Figure 10b).
+14. Plot the results using `plot/segmentation.py` (Figure 5), `plot/volumes_scatter.py` (6a), `plot/volumes_blandaltman.py` (6b) and `plot/per_region.py` (S4).

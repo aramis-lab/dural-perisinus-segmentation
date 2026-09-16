@@ -1,4 +1,4 @@
-# To plot the segmentation metrics (DSC and clDice). Figure 9.
+# To plot the segmentation metrics (DSC and clDice). Figure 5.
 
 # %%
 import matplotlib.pyplot as plt
@@ -11,8 +11,8 @@ from dural_perisinus_segmentation.plot.utils import (
     get_subgroup_pvalues,
 )
 
-EVALUATION_RATER_1 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-SL_label-dante_evaluationDetails.tsv"
-EVALUATION_RATER_2 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-DD_label-dante_evaluationDetails.tsv"
+EVALUATION_RATER_1 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-SL_label-lymph_evaluationDetails.tsv"
+EVALUATION_RATER_2 = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/desc-DD_label-lymph_evaluationDetails.tsv"
 INTER_RATER_COMPARISON = "../../../data/bids/rater1-SL_rater2-DD_interraterDetails.tsv"
 METADATA = "../../../data/bids/metadata.tsv"
 
@@ -67,7 +67,7 @@ Y_LABEL = "score ↑ ∈ [0, 1]"
 HUE_ORDER = [RATER_1_KEY, RATER_2_KEY, "inter-rater"]
 
 df["metric"] = df["metric"].apply(
-    lambda x: x.replace("cl_dice", "clDice").replace("dice", "DSC")
+    lambda x: x.replace("cldice", "clDice").replace("dice", "DSC")
 )
 df = df.rename(columns={"score": Y_LABEL})
 pairs_hue = [
@@ -83,7 +83,8 @@ test_participants = (
     .dropna()
     .index
 )
-f, ax = boxplot(
+
+boxplot(
     df=df,
     x="metric",
     y=Y_LABEL,
@@ -94,7 +95,7 @@ f, ax = boxplot(
     hue_order=HUE_ORDER,
     legend_loc="lower left",
     test_mode="related",
-    pairs_hue=pairs_hue,
+    pairs_test=pairs_hue,
     y_space_above_last_value=0.02,
 )
 plt.tight_layout()
@@ -147,7 +148,7 @@ print(
 print("Subgroup analysis")
 print("*" * 17)
 for metric in ["DSC", "clDice"]:
-    print("\n", metric)
+    print("\n" + metric)
     print("=" * 7)
     for rater in [RATER_1_KEY, RATER_2_KEY, "inter-rater"]:
         print(rater)

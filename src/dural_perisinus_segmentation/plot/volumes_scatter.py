@@ -1,4 +1,4 @@
-# A scatter plot of the volumes. Figure 10a.
+# A scatter plot of the volumes. Figure 6a.
 
 # %%
 from itertools import combinations
@@ -15,7 +15,8 @@ from dural_perisinus_segmentation.plot.utils import (
 )
 
 PRED_VOLUMES = "../../../data/nnUNet_results/Dataset000_dante/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/bids_pred/volumesDetails.tsv"
-RATERS_VOLUMES = "../../../data/bids/rater1-SL_rater2-DD_volumesDetails.tsv"
+RATER1_VOLUMES = "../../../data/bids/rater-SL_volumesDetails.tsv"
+RATER2_VOLUMES = "../../../data/bids/rater-DD_volumesDetails.tsv"
 METADATA = "../../../data/bids/metadata.tsv"
 
 RATER_1_KEY = "SLn"
@@ -30,15 +31,25 @@ pred_volumes = (
     )
     .set_index("participant_id")
     .drop(columns=["session_id"])
-)
-rater_volumes = (
-    pd.read_csv(
-        RATERS_VOLUMES,
-        sep="\t",
-    )
-    .set_index("participant_id")
-    .drop(columns=["session_id"])
-)
+).rename(columns={"total_volume": MODEL_KEY})
+rater_volumes = pd.concat(
+    [
+        pd.read_csv(
+            RATER1_VOLUMES,
+            sep="\t",
+        )
+        .set_index("participant_id")
+        .drop(columns=["session_id"]),
+        pd.read_csv(
+            RATER2_VOLUMES,
+            sep="\t",
+        )
+        .set_index("participant_id")
+        .drop(columns=["session_id"]),
+    ],
+    axis=1,
+    keys=[RATER_1_KEY, RATER_2_KEY],
+).droplevel(axis=1, level=1)
 metadata = (
     pd.read_csv(
         METADATA,
@@ -61,16 +72,8 @@ df = pd.concat(
     axis=1,
 )
 
-df = df.rename(
-    columns={
-        RATERS_VOLUMES.split("rater1-")[1].split("_")[0]: RATER_1_KEY,
-        RATERS_VOLUMES.split("rater2-")[1].split("_")[0]: RATER_2_KEY,
-        "pred_volume": MODEL_KEY,
-    }
-)
-
 # %%
-f, ax = scatterplots(
+scatterplots(
     df,
     plots=[
         (RATER_1_KEY, RATER_2_KEY),
