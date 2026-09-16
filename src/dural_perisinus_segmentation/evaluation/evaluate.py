@@ -61,7 +61,7 @@ def evaluate(
         dural-perisinus-seg evaluate data/bids_out data/bids_in '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymph"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymph"}, "data_type": "anat"}' --mask_regions_file_type '{"suffix": "mask", "with_entities": {"desc": "rater1", "label": "lymphRoi"}, "data_type": "anat"}' '{"suffix": "mask", "with_entities": {"desc": "rater2", "label": "lymphRoi"}, "data_type": "anat"}'
     """
     metrics = MetricsHandler(
-        cl_dice=clDiceMetric(pred_key="image", label_key="gt"),
+        cldice=clDiceMetric(pred_key="image", label_key="gt"),
         dice=DiceMetric(pred_key="image", label_key="gt"),
     )
 
@@ -84,7 +84,7 @@ def evaluate(
         for _, row in regions_indices.iterrows():
             metrics.add_metrics(
                 **{
-                    f"cl_dice_{row['roi']}": clDiceMetric(
+                    f"cldice_{row['roi']}": clDiceMetric(
                         pred_key="regions",
                         label_key="gt",
                         label=int(row["id"]),
