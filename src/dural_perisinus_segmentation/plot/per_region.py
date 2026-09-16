@@ -1,9 +1,10 @@
-# To plot the results per region.
+# To plot the results per region. Figure S4.
 
 # %%
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from dural_perisinus_segmentation.plot.utils import (
@@ -12,6 +13,7 @@ from dural_perisinus_segmentation.plot.utils import (
     get_aver,
     get_mean_and_conf,
     get_ver,
+    plot_table,
 )
 
 BIDS_OUT = Path(
@@ -25,10 +27,10 @@ RATER2_KEY = "DD"
 EVALUATION_RATER_1 = BIDS_OUT / "desc-SL_label-lymph_evaluationDetails.tsv"
 EVALUATION_RATER_2 = BIDS_OUT / "desc-DD_label-lymph_evaluationDetails.tsv"
 EVALUATION_RATER_1_ROI = (
-    BIDS_OUT / f"desc-{RATER1_KEY}_label-lymphRoi_evaluationDetails.tsv"
+    BIDS_OUT / f"desc-{RATER1_KEY}_label-lymphRoi_evaluationRoiDetails.tsv"
 )
 EVALUATION_RATER_2_ROI = (
-    BIDS_OUT / f"desc-{RATER2_KEY}_label-lymphRoi_evaluationDetails.tsv"
+    BIDS_OUT / f"desc-{RATER2_KEY}_label-lymphRoi_evaluationRoiDetails.tsv"
 )
 INTER_RATER_COMPARISON = (
     BIDS_IN / f"rater1-{RATER1_KEY}_rater2-{RATER2_KEY}_interraterDetails.tsv"
@@ -43,14 +45,13 @@ RATER2_VOLUMES = BIDS_IN / f"rater-{RATER2_KEY}_volumesDetails.tsv"
 RATER1_VOLUMES_ROI = BIDS_IN / f"rater-{RATER1_KEY}_volumesRoiDetails.tsv"
 RATER2_VOLUMES_ROI = BIDS_IN / f"rater-{RATER2_KEY}_volumesRoiDetails.tsv"
 PRED_VOLUMES_ROI_RATER1 = (
-    BIDS_OUT / f"desc-{RATER1_KEY}_label-lymphRoi_volumesDetails.tsv"
+    BIDS_OUT / f"desc-{RATER1_KEY}_label-lymphRoi_volumesRoiDetails.tsv"
 )
 PRED_VOLUMES_ROI_RATER2 = (
-    BIDS_OUT / f"desc-{RATER2_KEY}_label-lymphRoi_volumesDetails.tsv"
+    BIDS_OUT / f"desc-{RATER2_KEY}_label-lymphRoi_volumesRoiDetails.tsv"
 )
 
 # %%
-
 model_evaluation_rater1 = pd.concat(
     [
         pd.read_csv(
@@ -196,6 +197,11 @@ df = pd.concat(
         model_evaluation_rater1,
         model_evaluation_rater2,
         inter_rater,
+    ],
+    axis=1,
+)
+volumes = pd.concat(
+    [
         volumes_rater_1,
         volumes_rater_2,
         pred_volumes,
@@ -214,31 +220,31 @@ for suffix in ["", "_SSS", "_Torcular", "_StS", "_TS", "_SS"]:
         )
 
         df[f"{rater}_aver" + suffix] = get_aver(
-            df, f"{rater}_volume" + suffix, predicted_volume_key
+            volumes, f"{rater}_volume" + suffix, predicted_volume_key
         )[1]
         df[f"{rater}_ver" + suffix] = get_ver(
-            df, f"{rater}_volume" + suffix, predicted_volume_key
+            volumes, f"{rater}_volume" + suffix, predicted_volume_key
         )[1]
 
         correlations[suffix][rater] = _get_pearson_str(
-            df, f"{rater}_volume" + suffix, predicted_volume_key
+            volumes, f"{rater}_volume" + suffix, predicted_volume_key
         )
 
     df["inter-rater_aver" + suffix] = get_aver(
-        df, f"{RATER1_KEY}_volume" + suffix, f"{RATER2_KEY}_volume" + suffix
+        volumes, f"{RATER1_KEY}_volume" + suffix, f"{RATER2_KEY}_volume" + suffix
     )[1]
     df["inter-rater_ver" + suffix] = get_ver(
-        df, f"{RATER1_KEY}_volume" + suffix, f"{RATER2_KEY}_volume" + suffix
+        volumes, f"{RATER1_KEY}_volume" + suffix, f"{RATER2_KEY}_volume" + suffix
     )[1]
 
     correlations[suffix]["inter-rater"] = _get_pearson_str(
-        df, f"{RATER1_KEY}_volume" + suffix, f"{RATER2_KEY}_volume" + suffix
+        volumes, f"{RATER1_KEY}_volume" + suffix, f"{RATER2_KEY}_volume" + suffix
     )
 
-# df = df[[col for col in df.columns if "volume" not in col]]
-
 # %%
-df = pd.melt(df, var_name="category", value_name="x")
+df = pd.melt(
+    df.reset_index(), id_vars="participant_id", var_name="category", value_name="x"
+)
 df[["rater", "metric", "region"]] = df["category"].str.split("_", expand=True)
 df = df.drop(columns=["category"])
 df["region"] = df["region"].fillna("global")
@@ -246,9 +252,13 @@ df["rater"] = df["rater"].apply(
     lambda x: x.replace("DD", "test on DD").replace("SL", "test on SLn")
 )
 
-# %%
-import matplotlib.pyplot as plt
+corr_df = pd.DataFrame(correlations)
+corr_df.index = corr_df.index.map(
+    lambda x: x.replace("DD", "test on DD").replace("SL", "test on SLn")
+)
+corr_df.columns = corr_df.columns.map(lambda x: x.replace("_", "") if x else "global")
 
+# %%
 hue_order = ["global", "SSS", "Torcular", "StS", "TS", "SS"]
 metrics = ["dice", "cldice", "ver", "aver"]
 metric_names = ["DSC ↑ ∈ [0, 1]", "clDice ↑ ∈ [0, 1]", "VER", "AVER ↓"]
@@ -287,9 +297,7 @@ for ax, metric, displayed_name in zip(
     metrics,
     metric_names,
 ):
-    ax.axis("off")
-
-    df_ = (
+    df_metric = (
         df[df["metric"] == metric]
         .drop(columns=["metric"])
         .dropna()
@@ -301,88 +309,10 @@ for ax, metric, displayed_name in zip(
         )
         .sort_index(axis=1, key=lambda x: x.map(lambda y: hue_order.index(y)))
         .sort_index(axis=0, key=lambda x: x.map(lambda y: rater_order.index(y)))
-        .reset_index(names=[""])
     )
 
-    table = ax.table(
-        cellText=df_.values,
-        colLabels=df_.columns,
-        cellLoc="center",
-        colLoc="center",
-        loc="center",
-    )
+    plot_table(df_metric, ax=ax, title=displayed_name, scale=1.3)
 
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(0.95, 1.3)  # Smaller / tighter cells
+plot_table(corr_df, ax=axes[-1], title="Pearson r ↑ ∈ [-1, 1]", scale=1.3)
 
-    cells_to_bold = [(0, i) for i in range(1, len(hue_order) + 1)] + [
-        (i, 0) for i in range(1, len(df["rater"].unique()) + 1)
-    ]
-    for row, col in cells_to_bold:
-        cell = table[row, col]
-        cell.get_text().set_fontweight("bold")
-
-    ax.set_title(
-        displayed_name,
-        loc="left",
-        fontsize=10,
-        fontweight="bold",
-        pad=1,  # Very small gap below title
-    )
-
-table = axes[-1].table(
-    cellText=df_.values,
-    colLabels=df_.columns,
-    cellLoc="center",
-    colLoc="center",
-    loc="center",
-)
-
-table.auto_set_font_size(False)
-table.set_fontsize(10)
-table.scale(0.95, 1.3)  # Smaller / tighter cells
-
-cells_to_bold = [(0, i) for i in range(1, len(hue_order) + 1)] + [
-    (i, 0) for i in range(1, len(df["rater"].unique()) + 1)
-]
-for row, col in cells_to_bold:
-    cell = table[row, col]
-    cell.get_text().set_fontweight("bold")
-
-axes[-1].set_title(
-    displayed_name,
-    loc="left",
-    fontsize=10,
-    fontweight="bold",
-    pad=1,  # Very small gap below title
-)
-
-plt.show()
-# %%
-ax = boxplot(
-    df[df["metric"] == "dice"],
-    x="rater",
-    y="x",
-    hue="region",
-    hue_order=hue_order,
-    order=rater_order,
-    plot_tests=False,
-    figsize=(10, 5),
-    plot_points=False,
-)
-ax.set_xlabel("")
-ax.set_ylabel("DSC ↑ ∈ [0, 1]")
-ax.legend(title="region")
-
-# %%
-_get_pearson_str(
-    df[
-        (df["rater"] == "test on SLn")
-        & (df["region"] == "SSS")
-        & (df["metric"] == "dice")
-    ],
-    x="metric",
-    y="x",
-)
 # %%
