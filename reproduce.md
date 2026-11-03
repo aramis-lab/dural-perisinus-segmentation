@@ -25,9 +25,12 @@ sub-XXX         ses-M000    35  F   control
 sub-YYY         ses-M000    25  F   IIH
 ...
 ```
-> **Important**:
+> [!IMPORTANT]
 > - Even if it is useless here, the column "session_id" is **required**. You can put "ses-M000" everywhere.
 > - Columns "age", "sex" and "medical_condition" may be useful to stratify your splits.
+
+> [!WARNING]
+> The original experiment was performed on images with **RAS orientation**. The chosen orientation is probably not a determining factor, but make sure it **stays consistent across images in your training and test sets**.
 
 5. Split your data into training and test sets using this TSV file and the command `dural-perisinus-seg split`. E.g.:
 ```bash 
