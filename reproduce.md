@@ -30,7 +30,7 @@ sub-YYY         ses-M000    25  F   IIH
 > - Columns "age", "sex" and "medical_condition" may be useful to stratify your splits.
 
 > [!WARNING]
-> The original experiment was performed on images with **RAS orientation**. The chosen orientation is probably not a determining factor, but make sure it **stays consistent across images in your training and test sets**.
+> The original experiment was performed on images with **RAS orientation**. The chosen orientation is probably not a determining factor, but make sure it **stays consistent across images in your training and test sets, and between the two sets**.
 
 5. Split your data into training and test sets using this TSV file and the command `dural-perisinus-seg split`. E.g.:
 ```bash 
