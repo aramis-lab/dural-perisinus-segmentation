@@ -10,9 +10,12 @@ The automatic segmentation model was trained using the [nnUNet](https://github.c
 
 The trained **weights** can be found here: [10.5281/zenodo.21797957](https://doi.org/10.5281/zenodo.21797957)
 
-You can use our models to **segment your own data** by following [this guide](https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/how-to/run-inference.md).
+You can use our model to **segment your own data** by following [this guide](https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/how-to/run-inference.md).
 
-Or you can **fine-tune** them using [this guide](https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/pretraining_and_finetuning.md).
+Or you can **fine-tune** it using [this guide](https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/pretraining_and_finetuning.md).
+
+> [!WARNING]
+> The model expects input MRI scans with **RAS orientation**. Any other orientation may be detrimental to the quality of the segmentations produced.
 
 ## Reproduce
 
