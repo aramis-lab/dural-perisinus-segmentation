@@ -8,6 +8,7 @@ To reproduce the experiment, follow these steps:
 2. Clone this repo:
 ```bash
 git clone https://github.com/aramis-lab/dural-perisinus-segmentation.git && cd dural-perisinus-segmentation
+git switch dd_tdv_2026
 ```
 
 3. Install the Python environment:
