@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from shutil import copyfile
+from unittest.mock import MagicMock
 
 import click
+import pandas as pd
 from clinicadl.data.datasets import BidsDataset
-from clinicadl.io.bids import BidsFileType
-from clinicadl.split import SingleSplit
+from clinicadl.io.bids import Bids, BidsFileType
+from clinicadl.split import SingleSplit, Split
 from clinicadl.transforms import TransformsHandler
 from clinicadl.transforms.config import ToCanonicalConfig
 from joblib import Parallel, delayed
@@ -88,12 +90,17 @@ def bids_to_nnunet(
         bids = BidsDataset(
             bids_path,
             file_type=img_file_type,
+            data=pd.DataFrame.from_records(
+                list(Bids(bids_path).get_participants_sessions_with(mask)),
+                columns=["participant_id", "session_id"],
+            ),
             masks={"gt": mask},
             transforms=TransformsHandler(image_transforms=[ToCanonicalConfig()]),
         )
         bids.sanity_check(spatial_checks=["affine"])
 
-        split = SingleSplit(split_dir).get_split(bids)
+        splitter = SingleSplit(split_dir)
+        split = _handle_empty_split(splitter, bids)
 
         dataset_path = (
             Path(nnunet_datasets_dir) / f"Dataset{dataset_id:03}_{dataset_name}"
@@ -123,7 +130,7 @@ def bids_to_nnunet(
         file_type=img_file_type,
         transforms=TransformsHandler(image_transforms=[ToCanonicalConfig()]),
     )
-    split = SingleSplit(split_dir).get_split(bids)
+    split = splitter.get_split(bids)
 
     test_results = Parallel(n_jobs=-1, prefer="threads")(
         delayed(_save_test_sample)(
@@ -173,6 +180,41 @@ def _save_test_sample(j, data, dataset_path):
     data.image.save(img_dest_path)
 
     return f"{j:03}", data.participant_id
+
+
+def _handle_empty_split(splitter: SingleSplit, dataset: BidsDataset) -> Split:
+    """
+    Get the split and handle the exception if the training or test set is empty.
+    """
+    try:
+        return splitter.get_split(dataset)
+    except RuntimeError:
+        empty_dataset = MagicMock(spec=BidsDataset)
+        empty_dataset.__len__.return_value = 0
+        empty_dataset.__getitem__.side_effect = IndexError
+        if (
+            len(
+                splitter.subjects_sessions_split[0].training.merge(
+                    dataset.df, on="participant_id"
+                )
+            )
+            == 0
+        ):
+            return Split(
+                index=0,
+                train_dataset=empty_dataset,
+                val_dataset=dataset.subset(
+                    splitter.subjects_sessions_split[0].validation
+                ),
+            )
+        else:
+            return Split(
+                index=0,
+                train_dataset=dataset.subset(
+                    splitter.subjects_sessions_split[0].training
+                ),
+                val_dataset=empty_dataset,
+            )
 
 
 @click.command(no_args_is_help=True)
